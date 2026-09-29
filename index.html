@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1024, height=768, user-scalable=no" />
+  <title>FrameIt</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- 01 — Bienvenida -->
+    <section class="screen screen--welcome is-active" data-screen="welcome">
+      <div class="bg-photo-wrap">
+        <img class="bg-photo" src="assets/img/welcome-bg.png" alt="" />
+        <div class="bg-tint"></div>
+      </div>
+      <div class="welcome-content">
+        <img class="logo" src="assets/logo/isologo.svg" alt="Frame it" />
+        <p class="tap-to-start">Toca para comenzar</p>
+      </div>
+    </section>
+
+    <!-- 02 — Selección de modo -->
+    <section class="screen screen--mode" data-screen="mode">
+      <img class="corner-bracket corner-bracket--tl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--tr" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--bl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--br" src="assets/logo/corner-bracket.svg" alt="" />
+
+      <h1 class="mode-title">Seleccioná un modo</h1>
+
+      <div class="mode-options">
+        <button class="mode-card" type="button" data-mode="strip">
+          <div class="photo-stack photo-stack--strip">
+            <div class="polaroid polaroid--strip polaroid--strip-2">
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <img class="polaroid-watermark" src="assets/logo/isologo.svg" alt="" />
+            </div>
+            <div class="polaroid polaroid--strip polaroid--strip-1">
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <img class="polaroid-watermark" src="assets/logo/isologo.svg" alt="" />
+            </div>
+          </div>
+          <span class="mode-label">Foto tira</span>
+        </button>
+
+        <button class="mode-card" type="button" data-mode="single">
+          <div class="photo-stack photo-stack--single">
+            <div class="polaroid polaroid--single polaroid--single-3">
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <img class="polaroid-watermark" src="assets/logo/isologo.svg" alt="" />
+            </div>
+            <div class="polaroid polaroid--single polaroid--single-2">
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <img class="polaroid-watermark" src="assets/logo/isologo.svg" alt="" />
+            </div>
+            <div class="polaroid polaroid--single polaroid--single-1">
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <img class="polaroid-watermark" src="assets/logo/isologo.svg" alt="" />
+            </div>
+          </div>
+          <span class="mode-label">Foto individual</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 03 — Selección de marco -->
+    <section class="screen screen--selection" data-screen="selection">
+      <img class="corner-bracket corner-bracket--tl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--tr" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--bl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--br" src="assets/logo/corner-bracket.svg" alt="" />
+
+      <h1 class="selection-title">¡Elegí tu marco!</h1>
+
+      <div class="camera-frame">
+        <!-- MVP: webcam del navegador (getUserMedia). En la Pi esto se reemplaza
+             por el feed real de la cámara USB vía OpenCV/v4l2 desde el backend. -->
+        <video class="camera-photo" id="cameraFeed" autoplay muted playsinline></video>
+        <img class="camera-photo" id="cameraFallback" src="assets/img/booth-photo.png" alt="" hidden />
+        <img class="camera-frame-overlay" id="frameOverlay" src="assets/frames/frame-01.png" alt="" />
+
+        <button class="capture-btn" type="button" aria-label="Continuar a la captura">
+          <img src="assets/logo/camera-icon.svg" alt="" />
+        </button>
+      </div>
+
+      <div class="frame-thumbs">
+        <button class="frame-thumb is-selected" type="button" data-frame="assets/frames/frame-01.png" aria-label="Marco 1">
+          <img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" />
+          <img class="frame-thumb-overlay" src="assets/frames/frame-01.png" alt="" />
+        </button>
+        <button class="frame-thumb" type="button" data-frame="assets/frames/frame-02.png" aria-label="Marco 2">
+          <img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" />
+          <img class="frame-thumb-overlay" src="assets/frames/frame-02.png" alt="" />
+        </button>
+        <button class="frame-thumb" type="button" data-frame="assets/frames/frame-03.png" aria-label="Marco 3">
+          <img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" />
+          <img class="frame-thumb-overlay" src="assets/frames/frame-03.png" alt="" />
+        </button>
+        <button class="frame-thumb" type="button" data-frame="assets/frames/frame-04.png" aria-label="Marco 4">
+          <img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" />
+          <img class="frame-thumb-overlay" src="assets/frames/frame-04.png" alt="" />
+        </button>
+        <button class="frame-thumb" type="button" data-frame="assets/frames/frame-05.png" aria-label="Marco 5">
+          <img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" />
+          <img class="frame-thumb-overlay" src="assets/frames/frame-05.png" alt="" />
+        </button>
+        <button class="frame-thumb" type="button" data-frame="assets/frames/frame-06.png" aria-label="Marco 6">
+          <img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" />
+          <img class="frame-thumb-overlay" src="assets/frames/frame-06.png" alt="" />
+        </button>
+      </div>
+    </section>
+
+    <!-- 04 — Captura -->
+    <section class="screen screen--capturing" data-screen="capturing">
+      <img class="corner-bracket corner-bracket--tl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--tr" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--bl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--br" src="assets/logo/corner-bracket.svg" alt="" />
+
+      <h1 class="selection-title">Capturando</h1>
+      <p class="shot-counter" id="shotCounter" hidden></p>
+
+      <div class="camera-frame">
+        <!-- MVP: webcam del navegador. En la Pi, feed real vía OpenCV/v4l2. -->
+        <video class="camera-photo" id="captureFeed" autoplay muted playsinline></video>
+        <img class="camera-photo" id="captureFallback" src="assets/img/booth-photo.png" alt="" hidden />
+        <img class="camera-frame-overlay" id="captureFrameOverlay" src="assets/frames/frame-01.png" alt="" />
+
+        <!-- Guía de crop vertical: recorte centrado ~106:97 (mismo ratio que
+             usan las celdas de foto en el resto de la UI). El box-shadow
+             gigante oscurece todo lo que queda afuera del recuadro. -->
+        <div class="crop-guide"></div>
+
+        <p class="countdown" id="countdownText">3</p>
+
+        <button class="capture-btn" type="button" tabindex="-1" aria-hidden="true">
+          <img src="assets/logo/camera-icon.svg" alt="" />
+        </button>
+      </div>
+
+      <div class="frame-thumbs frame-thumbs--readonly">
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-01.png" alt="" /></div>
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-02.png" alt="" /></div>
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-03.png" alt="" /></div>
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-04.png" alt="" /></div>
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-05.png" alt="" /></div>
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-06.png" alt="" /></div>
+      </div>
+    </section>
+
+    <!-- 05 — Preview -->
+    <section class="screen screen--preview" data-screen="preview">
+      <img class="corner-bracket corner-bracket--tl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--tr" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--bl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--br" src="assets/logo/corner-bracket.svg" alt="" />
+
+      <h1 class="preview-title">Preview</h1>
+
+      <!-- Las celdas se generan por JS según session.mode (1 foto para
+           "single", 3 para "strip") y usan session.capturedPhotos. -->
+      <div class="print-strip" id="printStrip">
+        <div class="print-strip__photos" id="printStripPhotos"></div>
+        <div class="print-strip__footer">
+          <img src="assets/logo/isologo-light.svg" alt="Frame it" />
+        </div>
+      </div>
+
+      <p class="preview-heading">¡Foto lista!</p>
+      <p class="preview-question">¿Te gustó?</p>
+      <p class="preview-hint">podes volver a intentarlo</p>
+
+      <div class="preview-actions">
+        <button class="btn btn--retry" type="button" id="retryBtn">Volver a intentarlo</button>
+        <button class="btn btn--confirm" type="button" id="confirmBtn">Sí, me gustó</button>
+      </div>
+    </section>
+
+    <!-- 06 — Selección de fondo -->
+    <section class="screen screen--background" data-screen="background">
+      <img class="corner-bracket corner-bracket--tl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--tr" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--bl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--br" src="assets/logo/corner-bracket.svg" alt="" />
+
+      <p class="bg-heading">¡Elegí un fondo!</p>
+      <p class="bg-subheading">Estás a un paso de obtener tu foto</p>
+
+      <div class="bg-options">
+        <button class="bg-swatch is-selected" type="button" data-bg="bg-01" style="background-image: url('assets/img/bg-01.png')">
+          <div class="swatch-strip swatch-strip--back">
+            <div class="swatch-strip__mat"><div class="print-strip__photos" data-swatch-photos></div></div>
+          </div>
+          <div class="swatch-strip swatch-strip--front">
+            <div class="swatch-strip__mat"><div class="print-strip__photos" data-swatch-photos></div></div>
+          </div>
+          <div class="bg-swatch__footer"><img src="assets/logo/isologo-light.svg" alt="Frame it" /></div>
+        </button>
+        <button class="bg-swatch" type="button" data-bg="bg-02" style="background-image: url('assets/img/bg-02.png')">
+          <div class="swatch-strip swatch-strip--back">
+            <div class="swatch-strip__mat"><div class="print-strip__photos" data-swatch-photos></div></div>
+          </div>
+          <div class="swatch-strip swatch-strip--front">
+            <div class="swatch-strip__mat"><div class="print-strip__photos" data-swatch-photos></div></div>
+          </div>
+          <div class="bg-swatch__footer"><img src="assets/logo/isologo-light.svg" alt="Frame it" /></div>
+        </button>
+        <button class="bg-swatch" type="button" data-bg="bg-03" style="background-image: url('assets/img/bg-03.png')">
+          <div class="swatch-strip swatch-strip--back">
+            <div class="swatch-strip__mat"><div class="print-strip__photos" data-swatch-photos></div></div>
+          </div>
+          <div class="swatch-strip swatch-strip--front">
+            <div class="swatch-strip__mat"><div class="print-strip__photos" data-swatch-photos></div></div>
+          </div>
+          <div class="bg-swatch__footer"><img src="assets/logo/isologo-light.svg" alt="Frame it" /></div>
+        </button>
+      </div>
+
+      <button class="btn btn--confirm bg-next-btn" type="button" id="bgNextBtn">Siguiente</button>
+    </section>
+
+    <!-- 07 — Entrega -->
+    <section class="screen screen--export" data-screen="export">
+      <img class="corner-bracket corner-bracket--tl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--tr" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--bl" src="assets/logo/corner-bracket.svg" alt="" />
+      <img class="corner-bracket corner-bracket--br" src="assets/logo/corner-bracket.svg" alt="" />
+
+      <!-- Composición final: la tira sobre el fondo elegido en la pantalla anterior -->
+      <div class="export-print" id="exportPrint">
+        <div class="swatch-strip swatch-strip--back">
+          <div class="swatch-strip__mat"><div class="print-strip__photos" data-export-photos></div></div>
+        </div>
+        <div class="swatch-strip swatch-strip--front">
+          <div class="swatch-strip__mat"><div class="print-strip__photos" data-export-photos></div></div>
+        </div>
+        <div class="bg-swatch__footer"><img src="assets/logo/isologo-light.svg" alt="Frame it" /></div>
+      </div>
+
+      <h1 class="export-heading">¡Tu foto está lista!</h1>
+      <p class="export-text export-text--qr-hint">Escaneá el código para descargarla y compartirla 📸</p>
+
+      <!-- Arranca con un placeholder mientras se sube la foto al mini
+           servidor local; el JS lo reemplaza por un QR real apenas la URL
+           de descarga está lista (ver uploadAndRenderQr en app.js). -->
+      <div class="export-qr" id="exportQr">
+        <img src="assets/img/qr-placeholder.png" alt="Código QR" width="175" height="175" />
+      </div>
+
+      <p class="export-text export-text--instagram">Compartila en tu Instagram y etiquetanos</p>
+      <p class="export-text export-text--handle">@frameit</p>
+      <p class="export-text export-text--countdown" id="exportCountdown">Volviendo a pantalla principal en: 2 minutos</p>
+    </section>
+
+    <!-- pantalla de agradecimiento (falta diseñar en Figma) -->
+
+  </div>
+
+  <script src="js/vendor/qrcode.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+.DS_Store
+.atl/
+uploads/*
+!uploads/.gitkeep
+__pycache__/
+*.pyc

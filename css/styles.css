@@ -1,0 +1,844 @@
+/* =========================================================
+   FrameIt — Design tokens & base layout
+   Kiosk UI, 1024x768, horizontal screen / vertical print
+   ========================================================= */
+
+@font-face {
+  font-family: "Alumni Sans Pinstripe";
+  src: url("../assets/fonts/AlumniSansPinstripe-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Brand colors (verified against the Figma source file) */
+  --color-vinotinto: #3d0303; /* "Frame" text, high-hierarchy elements */
+  --color-red: #950606; /* "it" text, corner-bracket motif, primary accent */
+  --color-pink: #ffdede; /* institutional background tint */
+  --color-white: #ffffff;
+
+  --font-ui: "Alumni Sans Pinstripe", sans-serif;
+
+  --screen-w: 1024px;
+  --screen-h: 768px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-ui);
+  color: var(--color-vinotinto);
+  /* Alumni Sans Pinstripe es un trazo muy fino: un stroke sutil lo refuerza */
+  -webkit-text-stroke: 1px currentColor;
+}
+
+/* Kiosk stage: fixed 1024x768 canvas, everything lives inside it */
+#app {
+  position: relative;
+  width: var(--screen-w);
+  height: var(--screen-h);
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+/* Every screen stacks in the same spot; only the active one shows */
+.screen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+}
+
+.screen.is-active {
+  display: block;
+}
+
+/* Corner-bracket motif: reused as a decorative frame on multiple screens.
+   z-index alto porque en algunas pantallas se superpone al borde de una foto
+   y debe quedar por encima (así se ve en el diseño). */
+.corner-bracket {
+  position: absolute;
+  width: 54px;
+  height: 49px;
+  z-index: 10;
+}
+
+.corner-bracket--tl {
+  top: 112px;
+  left: 42px;
+}
+
+.corner-bracket--tr {
+  top: 112px;
+  right: 42px;
+  transform: scaleX(-1);
+}
+
+.corner-bracket--bl {
+  bottom: 112px;
+  left: 42px;
+  transform: scaleY(-1);
+}
+
+.corner-bracket--br {
+  bottom: 112px;
+  right: 42px;
+  transform: scale(-1, -1);
+}
+
+/* =========================================================
+   01 — Bienvenida
+   ========================================================= */
+
+.screen--welcome {
+  background: var(--color-pink);
+}
+
+.screen--welcome .bg-photo-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.screen--welcome .bg-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.screen--welcome .bg-tint {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 222, 222, 0.8);
+}
+
+.screen--welcome .welcome-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.screen--welcome .logo {
+  width: 330px;
+  height: auto;
+}
+
+.screen--welcome .tap-to-start {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 40px;
+  color: var(--color-vinotinto);
+}
+
+/* =========================================================
+   02 — Selección de modo
+   ========================================================= */
+
+.screen--mode {
+  background: var(--color-pink);
+}
+
+.mode-title {
+  position: absolute;
+  top: 150px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-weight: 400;
+  font-size: 64px;
+  color: var(--color-vinotinto);
+  white-space: nowrap;
+}
+
+.mode-options {
+  position: absolute;
+  top: 280px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 150px;
+}
+
+.mode-card {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.mode-card:focus-visible {
+  outline: 2px solid var(--color-red);
+  outline-offset: 8px;
+  border-radius: 4px;
+}
+
+.mode-label {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 24px;
+  color: var(--color-vinotinto);
+}
+
+/* Polaroid stacks: shared building block for both mode cards.
+   La altura de cada variante contempla el bbox real de la tarjeta
+   rotada más alta, para que nunca tape el label de abajo. */
+.photo-stack {
+  position: relative;
+  width: 210px;
+}
+
+.photo-stack--single {
+  height: 232px;
+}
+
+.photo-stack--strip {
+  height: 340px;
+}
+
+.polaroid {
+  position: absolute;
+  background: var(--color-white);
+  border: 1px solid rgba(61, 3, 3, 0.12);
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(61, 3, 3, 0.18);
+  padding: 6px 6px 34px;
+  box-sizing: border-box;
+}
+
+.polaroid-cell {
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.polaroid-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.polaroid-watermark {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: auto;
+}
+
+/* Foto individual: 3 fanned single-photo polaroids */
+.polaroid--single {
+  width: 151px;
+  height: 182px;
+}
+
+.polaroid--single .polaroid-cell {
+  width: 100%;
+  height: 134px;
+}
+
+.polaroid--single-1 {
+  top: 0;
+  left: 30px;
+  transform: rotate(0deg);
+  z-index: 3;
+}
+
+.polaroid--single-2 {
+  top: 20px;
+  left: 65px;
+  transform: rotate(21.09deg);
+  z-index: 2;
+}
+
+.polaroid--single-3 {
+  top: 35px;
+  left: 5px;
+  transform: rotate(-13.29deg);
+  z-index: 1;
+}
+
+/* Foto tira: 2 fanned photo-strip polaroids, 3 cells each.
+   width/height explícitos (no auto) para poder calcular el bbox rotado. */
+.polaroid--strip {
+  width: 120px;
+  height: 322px;
+  padding: 6px 6px 38px;
+}
+
+.polaroid--strip .polaroid-cell {
+  width: 100%;
+  height: 88px;
+  margin-bottom: 6px;
+}
+
+.polaroid--strip .polaroid-cell:last-child {
+  margin-bottom: 0;
+}
+
+.polaroid--strip-1 {
+  top: 0;
+  left: 35px;
+  transform: rotate(0deg);
+  z-index: 2;
+}
+
+.polaroid--strip-2 {
+  top: 14px;
+  left: 0;
+  transform: rotate(-13.49deg);
+  z-index: 1;
+}
+
+/* =========================================================
+   03 — Selección de marco
+   ========================================================= */
+
+.screen--selection {
+  background: var(--color-pink);
+}
+
+.selection-title {
+  position: absolute;
+  top: 35px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-weight: 400;
+  font-size: 40px;
+  color: var(--color-vinotinto);
+  white-space: nowrap;
+}
+
+/* Los brackets delimitan el "área segura" de la pantalla: 42px a los costados,
+   112px arriba/abajo (banda de 940x544). La cámara y las miniaturas deben
+   entrar ahí, en vez de mover los brackets para que las sigan a ellas. */
+.camera-frame {
+  position: absolute;
+  left: 45px;
+  top: 112px;
+  width: 934px;
+  height: 544px; /* ocupa todo el alto delimitado por los brackets (112 a 656) */
+  border-radius: 20px;
+  overflow: hidden;
+  background: #000;
+}
+
+.camera-photo,
+.camera-frame-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Espejado: que la webcam se vea como un espejo, no invertida */
+video.camera-photo {
+  transform: scaleX(-1);
+}
+
+/* .camera-photo tiene la misma especificidad que [hidden] del navegador;
+   sin esto, el atributo hidden del fallback quedaba ignorado. */
+.camera-photo[hidden] {
+  display: none;
+}
+
+.camera-frame-overlay {
+  pointer-events: none;
+}
+
+.capture-btn {
+  all: unset;
+  position: absolute;
+  left: 418px;
+  top: 433px; /* 24px de margen respecto al borde inferior del marco (544px de alto) */
+  width: 87px;
+  height: 87px;
+  border-radius: 50%;
+  background: var(--color-vinotinto);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.capture-btn:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 3px;
+}
+
+.capture-btn img {
+  width: 31px;
+  height: auto;
+}
+
+.frame-thumbs {
+  position: absolute;
+  left: 42px;
+  bottom: 24px; /* afuera del área de los brackets (que termina en bottom:112) */
+  width: 934px;
+  height: 80px;
+  display: flex;
+  gap: 14px;
+}
+
+.frame-thumb {
+  all: unset;
+  position: relative;
+  width: 144px;
+  height: 80px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #d9d9d9;
+  cursor: pointer;
+  box-sizing: border-box;
+  border: 3px solid transparent;
+}
+
+.frame-thumb.is-selected {
+  border-color: var(--color-red);
+}
+
+.frame-thumb-photo,
+.frame-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* =========================================================
+   04 — Captura
+   ========================================================= */
+
+.screen--capturing {
+  background: var(--color-pink);
+}
+
+/* Recorte centrado a ~106:97 (mismo ratio que las celdas de foto del resto
+   de la UI). El box-shadow gigante oscurece todo lo que queda afuera del
+   recuadro, funcionando como spotlight sin necesitar clip-path. */
+.crop-guide {
+  position: absolute;
+  left: 237px;
+  top: 62px;
+  width: 459px;
+  height: 420px;
+  border: 2px dashed var(--color-pink);
+  box-shadow: 0 0 0 9999px rgba(61, 3, 3, 0.6);
+  pointer-events: none;
+}
+
+.shot-counter {
+  position: absolute;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 24px;
+  color: var(--color-vinotinto);
+  white-space: nowrap;
+}
+
+.countdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 96px;
+  color: var(--color-pink);
+  z-index: 6;
+  pointer-events: none;
+}
+
+/* En Captura las miniaturas son solo referencia visual, no interactivas */
+.frame-thumbs--readonly .frame-thumb {
+  cursor: default;
+}
+
+/* =========================================================
+   05 — Preview
+   ========================================================= */
+
+.screen--preview {
+  background: var(--color-pink);
+}
+
+.preview-title {
+  position: absolute;
+  top: 36px;
+  left: 703px;
+  margin: 0;
+  font-weight: 400;
+  font-size: 40px;
+  color: var(--color-vinotinto);
+  white-space: nowrap;
+}
+
+.preview-heading {
+  position: absolute;
+  top: 226px;
+  left: 650px;
+  margin: 0;
+  font-weight: 400;
+  font-size: 64px;
+  color: var(--color-vinotinto);
+  white-space: nowrap;
+}
+
+.preview-question {
+  position: absolute;
+  top: 296px;
+  left: 744px;
+  transform: translateX(-50%);
+  margin: 0;
+  font-weight: 400;
+  font-size: 40px;
+  color: var(--color-vinotinto);
+  white-space: nowrap;
+}
+
+.preview-hint {
+  position: absolute;
+  top: 345px;
+  left: 744px;
+  transform: translateX(-50%);
+  margin: 0;
+  font-weight: 400;
+  font-size: 24px;
+  color: var(--color-vinotinto);
+  white-space: nowrap;
+}
+
+.preview-actions {
+  position: absolute;
+  top: 454px;
+  left: 584px;
+  display: flex;
+  gap: 14px;
+}
+
+.btn {
+  all: unset;
+  box-sizing: border-box;
+  width: 160px;
+  height: 60px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 24px;
+  color: var(--color-pink);
+  cursor: pointer;
+  text-align: center;
+}
+
+.btn--retry {
+  background: var(--color-red);
+}
+
+.btn--confirm {
+  background: var(--color-vinotinto);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--color-vinotinto);
+  outline-offset: 3px;
+}
+
+/* Tira de impresión: mat bordó (fiel al diseño de Figma), alto automático
+   según la cantidad de celdas (1 para "single", 3 para "strip"). El logo
+   claro va adentro, al pie de la tarjeta. */
+.print-strip {
+  position: absolute;
+  left: 213px;
+  top: 136px;
+  width: 141px;
+  box-sizing: border-box;
+  padding: 10px 8px;
+  background: var(--color-vinotinto);
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(61, 3, 3, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.print-strip__photos {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.print-strip__cell {
+  width: 100%;
+  aspect-ratio: 106 / 97; /* mismo ratio que .crop-guide en Captura */
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.print-strip__cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.print-strip__footer {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.print-strip__footer img {
+  width: 85px;
+  height: auto;
+}
+
+/* =========================================================
+   06 — Selección de fondo
+   ========================================================= */
+
+.screen--background {
+  background: var(--color-pink);
+}
+
+.bg-heading {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-weight: 400;
+  font-size: 64px;
+  color: var(--color-vinotinto);
+  white-space: nowrap;
+}
+
+.bg-subheading {
+  position: absolute;
+  top: 122px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-weight: 400;
+  font-size: 40px;
+  color: var(--color-vinotinto);
+  white-space: nowrap;
+}
+
+.bg-options {
+  position: absolute;
+  top: 219px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 80px;
+}
+
+.bg-swatch {
+  all: unset;
+  position: relative;
+  width: 213px;
+  height: 378px;
+  border-radius: 20px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  box-sizing: border-box;
+  border: 4px solid transparent;
+}
+
+.bg-swatch.is-selected {
+  border-color: var(--color-red);
+}
+
+.bg-swatch:focus-visible {
+  outline: 2px solid var(--color-vinotinto);
+  outline-offset: 4px;
+}
+
+/* Versión chica de .print-strip para previsualizar dentro del swatch;
+   reutiliza las clases de celda/pie de foto de la pantalla de Preview.
+   Van 2 superpuestas y rotadas (como en Figma): una atrás, oscurecida y
+   sin sombra; otra adelante, a color y con sombra — efecto de abanico. */
+.swatch-strip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* El mat claro envuelve solo las fotos; el logo queda afuera, debajo. */
+.swatch-strip__mat {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 4px;
+  background: var(--color-white);
+  border-radius: 6px;
+}
+
+.swatch-strip--back {
+  transform: translate(-50%, -50%) rotate(13.49deg);
+  filter: brightness(0.55);
+  z-index: 1;
+}
+
+.swatch-strip--front {
+  transform: translate(-50%, -50%) rotate(-16.71deg);
+  filter: drop-shadow(-8px 14px 6px rgba(0, 0, 0, 0.35));
+  z-index: 2;
+}
+
+/* Un solo logo por tarjeta, fijo abajo (no rota con las tiras) */
+.bg-swatch__footer {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 3;
+}
+
+.bg-swatch__footer img {
+  width: 68px;
+  height: auto;
+}
+
+.bg-next-btn {
+  position: absolute;
+  left: 50%;
+  top: 667px;
+  transform: translateX(-50%);
+}
+
+/* =========================================================
+   07 — Entrega
+   ========================================================= */
+
+.screen--export {
+  background: var(--color-pink);
+}
+
+/* Misma composición que .bg-swatch (foto de fondo + 2 tiras en abanico +
+   logo abajo), a un tamaño levemente distinto. */
+.export-print {
+  position: absolute;
+  left: 152px;
+  top: 165px;
+  width: 239px;
+  height: 425px;
+  border-radius: 20px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-color: #966d6d;
+}
+
+.export-heading {
+  position: absolute;
+  top: 165px;
+  left: 579px;
+  margin: 0;
+  font-weight: 400;
+  font-size: 64px;
+  color: var(--color-vinotinto);
+  white-space: nowrap;
+}
+
+/* Todos los textos secundarios de esta pantalla comparten el mismo eje
+   central (x≈745), calcado del diseño. */
+.export-text {
+  position: absolute;
+  left: 745px;
+  transform: translateX(-50%);
+  margin: 0;
+  font-family: var(--font-ui);
+  font-weight: 400;
+  color: var(--color-vinotinto);
+  text-align: center;
+}
+
+.export-text--qr-hint {
+  top: 235px;
+  font-size: 32px;
+  width: 420px;
+  white-space: normal;
+}
+
+.export-qr {
+  position: absolute;
+  left: 657px;
+  top: 323px;
+  width: 175px;
+  height: 175px;
+}
+
+.export-qr img,
+.export-qr canvas,
+.export-qr table {
+  width: 175px;
+  height: 175px;
+}
+
+.export-text--instagram {
+  top: 521px;
+  font-size: 24px;
+  white-space: nowrap;
+}
+
+.export-text--handle {
+  top: 560px;
+  font-size: 24px;
+  white-space: nowrap;
+}
+
+.export-text--countdown {
+  top: 684px;
+  font-size: 24px;
+  white-space: nowrap;
+}
