@@ -150,7 +150,31 @@ function drawCoverCrop(ctx, source, srcW, srcH, destW, destH, destX = 0, destY =
 // disponible), lo recorta centrado a CROP_RATIO y le compone encima el
 // marco generativo elegido. Devuelve el data URL; quien llama decide dónde
 // guardarlo (ver startShotSequence).
-function capturePhoto() {
+//
+// Dos sets de marco distintos a propósito:
+// - assets/frames/*.png (landscape, ~1024x683): se ve en la vista previa
+//   grande de las pantallas 3/4 (.camera-frame-overlay), que es panorámica.
+// - assets/frames/square/*.png (1:1): se compone acá, sobre el recorte
+//   final casi cuadrado (CROP_RATIO ~106:97) — así no hace falta estirar
+//   ninguno de los dos para que calcen.
+const squareFrameCache = {};
+
+function squareFramePath(framePath) {
+  return framePath.replace("assets/frames/", "assets/frames/square/");
+}
+
+// Dispara la carga del marco cuadrado apenas se sabe cuál es (al entrar a
+// "capturing"), para que ya esté en caché cuando capturePhoto() lo necesite
+// unos segundos después, al final de la cuenta regresiva.
+function preloadSquareFrame(framePath) {
+  const path = squareFramePath(framePath);
+  if (!squareFrameCache[path]) {
+    squareFrameCache[path] = loadImage(path);
+  }
+  return squareFrameCache[path];
+}
+
+async function capturePhoto() {
   const video = document.getElementById("captureFeed");
   const fallback = document.getElementById("captureFallback");
   const isLive = !video.hidden && video.videoWidth > 0;
@@ -178,12 +202,14 @@ function capturePhoto() {
   drawCoverCrop(ctx, source, srcW, srcH, canvas.width, canvas.height);
   ctx.restore();
 
-  // Marco generativo encima, sin espejar (es una decoración fija, no la cara
-  // de la persona). Estirado a medida en vez de recortado (drawCoverCrop):
-  // el marco tiene que verse completo, no cortado en los bordes.
-  const frameImg = document.getElementById("captureFrameOverlay");
-  if (frameImg.complete && frameImg.naturalWidth) {
+  // Marco generativo encima, sin espejar (es una decoración fija, no la
+  // cara de la persona) — versión cuadrada, dibujada 1:1 sin recortar ni
+  // estirar (su proporción ya es casi igual a la del canvas final).
+  try {
+    const frameImg = await preloadSquareFrame(session.frame);
     ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+  } catch (err) {
+    console.warn("[FrameIt] No se pudo cargar el marco cuadrado:", err);
   }
 
   return canvas.toDataURL("image/png");
@@ -207,8 +233,8 @@ function takeNextShot() {
   counterEl.hidden = totalShots === 1;
   counterEl.textContent = `Foto ${shotNumber} de ${totalShots}`;
 
-  startCountdown(() => {
-    const photo = capturePhoto();
+  startCountdown(async () => {
+    const photo = await capturePhoto();
     if (photo) session.capturedPhotos.push(photo);
 
     if (session.capturedPhotos.length < totalShots) {
@@ -474,6 +500,7 @@ const screenEnterHooks = {
   capturing: () => {
     // La pantalla de captura no elige marco: hereda el que se seleccionó antes.
     document.getElementById("captureFrameOverlay").src = session.frame;
+    preloadSquareFrame(session.frame); // listo en caché antes de que termine la cuenta regresiva
     startShotSequence();
   },
   preview: renderPrintStrip,
