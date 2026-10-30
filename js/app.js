@@ -179,10 +179,11 @@ function capturePhoto() {
   ctx.restore();
 
   // Marco generativo encima, sin espejar (es una decoración fija, no la cara
-  // de la persona) y recortado con el mismo criterio de centrado.
+  // de la persona). Estirado a medida en vez de recortado (drawCoverCrop):
+  // el marco tiene que verse completo, no cortado en los bordes.
   const frameImg = document.getElementById("captureFrameOverlay");
   if (frameImg.complete && frameImg.naturalWidth) {
-    drawCoverCrop(ctx, frameImg, frameImg.naturalWidth, frameImg.naturalHeight, canvas.width, canvas.height);
+    ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
   }
 
   return canvas.toDataURL("image/png");

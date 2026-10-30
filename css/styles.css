@@ -371,6 +371,10 @@ video.camera-photo {
 }
 
 .camera-frame-overlay {
+  /* "fill" en vez de "cover": el marco decorativo tiene que verse completo,
+     sin recortarse — si hace falta estirarlo un poco para calzar en el
+     rectángulo, mejor eso que perder parte del borde. */
+  object-fit: fill;
   pointer-events: none;
 }
 
@@ -435,6 +439,11 @@ video.camera-photo {
   height: 100%;
   object-fit: cover;
   pointer-events: none;
+}
+
+/* El marco decorativo se ve completo (igual criterio que .camera-frame-overlay) */
+.frame-thumb-overlay {
+  object-fit: fill;
 }
 
 /* =========================================================
