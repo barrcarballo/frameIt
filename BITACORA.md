@@ -158,3 +158,36 @@ mismo endpoint, específica para Vercel:
    misma matemática de bbox rotado que ya se usaba en CSS.
    **No verificado visualmente por mí** (sin forma de renderizar canvas en
    esta sesión) — pendiente que el usuario confirme cómo quedó.
+
+**Actualización — confirmado por el usuario, ajustes finos:**
+- Imagen compartible aprobada tras 3 vueltas: tiras más grandes (stripW
+  40%→48% del canvas), logo más abajo (margen inferior 15%→10%→5% de
+  EXPORT_H, respetando la safe-zone de IG Stories), y resolución subida a
+  **1080×1920** (la real de IG Stories — antes 640×1138 se veía pixelado a
+  pantalla completa).
+- Tira de atrás corregida para matchear Figma de verdad: mat **bordó**
+  (no blanco) + overlay negro al 69% sobre cada foto (no un filtro de
+  brillo genérico) — arreglado tanto en el canvas como en el CSS vivo de
+  las pantallas 6/7, para que no diverjan.
+
+### Marcos por IA — resultado final
+El billing de la API de OpenAI generó fricción real (cuenta de API
+separada de ChatGPT Plus, sin crédito cargado) — en vez de eso, se generaron
+los 6 marcos **a mano en ChatGPT** (el usuario ya paga Plus) a partir de
+referencias "aesthetic" que mandó (perlas, encaje, gemas, marco ovalado
+vintage, estrellas holográficas, corazones). `tools/frame-prompts.json`
+se actualizó con esos prompts reales.
+
+**Gotcha real encontrado:** las imágenes generadas se veían con el centro
+**negro** en la vista previa del chat — parecía que la transparencia no
+había funcionado. Se verificó con Pillow (`im.getpixel()`, histograma de
+alpha) que el archivo real **sí tenía canal alpha válido** (gradiente suave
+de 0 a ~250, feathered edge) — el negro era solo un artefacto de cómo se
+renderizó la vista previa que llegó al chat, no un problema del archivo.
+Lección: ante una imagen "rota" a simple vista, verificar el archivo real
+(`file`, Pillow) antes de asumir que hay que regenerar o cambiar de enfoque.
+
+Los 6 PNG finales se redimensionaron de 1536×1024 a 1024px de ancho y se
+optimizó la compresión PNG — bajó el peso total de `assets/frames/` de
+12MB a 3.5MB sin pérdida visible de calidad (ver el otro pendiente de
+performance en Pi 3, parcialmente resuelto acá).
