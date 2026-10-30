@@ -98,3 +98,28 @@ Terminar las pantallas que faltaban del flujo (04 a 07) y dejar la entrega
 - Pensar la galería web pública real (hoy el QR apunta a un archivo servido por `server.py` en la red local, sirve para probar pero no es la galería con analytics que describe el brief para el tier Corporate).
 - Evaluar comprimir `assets/img/bg-*.png` (pesan bastante para un Pi 3) y los marcos generativos, pensando en performance real en el hardware final.
 - Correr `python3 server.py` (no `python3 -m http.server`) al retomar — reemplaza al server viejo y agrega el endpoint de subida de fotos.
+
+---
+
+## Sesión 3 — 29/10
+
+### Objetivo
+Pushear el proyecto a GitHub para deploy en Vercel, y arrancar dos features nuevas: compartir la foto a Instagram desde el QR, y generación de marcos por IA.
+
+### Hecho
+- **Repo en GitHub:** `git init`, `.gitignore` (excluye `.atl/`, `uploads/*`, cruft de OS), commit inicial y push a `github.com/barrcarballo/frameIt` (main).
+- **Deploy a Vercel — decisión:** el sitio es estático puro (HTML/CSS/JS sin build step), deploya directo. `server.py` NO corre en Vercel (hosting serverless, no procesos persistentes) — el QR queda deshabilitado ahí por ahora (falla gracefully, sin romper la página) y se sigue probando completo en local. `getUserMedia` en cambio funciona MEJOR en Vercel que en local, porque Vercel es HTTPS (contexto seguro nativo).
+- **Compartir a Instagram vía QR:** se agregó `GET /galeria` en `server.py` — una página HTML mínima con la foto, un botón "Compartir" (Web Share API: `navigator.share` con un `File`, deja elegir Instagram entre las apps del celular) y un link de descarga directa como fallback. `POST /api/upload-photo` ahora devuelve `{"url": "/galeria"}` en vez de la ruta directa a la imagen — no hizo falta tocar `app.js`, ya arma la URL del QR con lo que le devuelve el server. Se preserva la política del brief (QR → galería, no deep-link directo a Stories) porque el share pasa primero por esa página.
+- **Generador de marcos por IA (`tools/`):** herramienta de admin, no corre en el kiosco.
+  - `tools/frame-prompts.json`: prompts guardados por temática ("default", "boda", "corporate"), 6 por set.
+  - `tools/generate_frames.py`: lee un set de prompts, llama a la API de imágenes de OpenAI (`gpt-image-2.5-sunburst`, `background="transparent"`, `output_format="png"`, `size="1536x1024"`) y guarda los PNG en `assets/frames/` (temática "default") o `assets/frames/<tema>/` (con `--apply` para copiarlos sobre los que usa la UI). Requiere `pip install openai` + `OPENAI_API_KEY` en el entorno — la key nunca toca el frontend ni el kiosco, el script se corre a mano una vez antes del evento.
+
+### Decisiones tomadas
+- **Generación de marcos: offline/pre-generada, no en vivo.** Se corre el script una vez antes del evento; la cabina sigue funcionando sin depender de internet estable durante el uso real, y no hay costo de API por cada foto que se saca.
+- **Proveedor de imágenes: OpenAI.** Elegido por el usuario entre OpenAI / Stability / "otro".
+- **Parámetros de la API verificados en vivo** (no de memoria, por las dudas de que hubieran cambiado): `background="transparent"` + `output_format="png"` para fondo transparente; tamaños tipo `1536x1024` (landscape) / `1024x1536` (portrait) / `1024x1024`. El modelo vigente al momento de esta sesión es `gpt-image-2.5-sunburst` (reemplazó a `gpt-image-1`) — queda como una sola constante en el script por si OpenAI lo vuelve a renombrar.
+
+### Pendientes
+- **Correr `tools/generate_frames.py` con una API key real** — todavía no se generó ningún marco nuevo, el script está armado pero sin probar contra la API de verdad (no tengo key del usuario).
+- Si se quiere soportar múltiples temáticas DESDE la UI (hoy el script las genera pero la cabina solo lee `assets/frames/` fijo), hace falta un selector de temática en la UI — no estaba pedido, queda anotado.
+- Resto de pendientes de sesiones anteriores sigue abierto: pantalla 08 Agradecimiento, cámara real vía OpenCV/v4l2 en la Pi, galería web pública real con analytics, compresión de assets.

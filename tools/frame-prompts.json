@@ -1,0 +1,30 @@
+{
+  "_comment": "Prompts guardados para generar marcos por IA (tools/generate_frames.py). Cada set tiene hasta 6 entradas (frame-01..06), un set por temática/evento. 'default' reemplaza los marcos estáticos actuales en assets/frames/.",
+
+  "default": [
+    { "id": "frame-01", "prompt": "Festive party frame border decoration, colorful balloons and confetti scattered along the edges only, transparent center, flat vector illustration style, vibrant pink and gold color palette, no text" },
+    { "id": "frame-02", "prompt": "Rainbow color splash paint stroke border decoration along the edges only, transparent center, playful hand-painted watercolor style, vivid multicolor palette, no text" },
+    { "id": "frame-03", "prompt": "Party frame border decoration with stars and a birthday crown scattered along the edges only, transparent center, flat vector illustration style, pink gold and blue color palette, no text" },
+    { "id": "frame-04", "prompt": "Sparkly glitter stars border decoration along the edges only, transparent center, soft glowing flat vector illustration style, pastel pink and gold color palette, no text" },
+    { "id": "frame-05", "prompt": "Cute hand-drawn hearts and squiggly doodle lines border decoration along the edges only, transparent center, playful sketch illustration style, pink and red color palette, no text" },
+    { "id": "frame-06", "prompt": "Minimal polaroid-style corner tape and washi tape border decoration along the edges only, transparent center, flat vector illustration style, cream and vinotinto color palette, no text" }
+  ],
+
+  "boda": [
+    { "id": "frame-01", "prompt": "Elegant wedding frame border decoration with delicate flowers and leaves along the edges only, transparent center, fine line illustration style, white gold and blush color palette, no text" },
+    { "id": "frame-02", "prompt": "Romantic wedding frame border decoration with ribbons and small roses along the edges only, transparent center, elegant watercolor style, ivory and dusty rose color palette, no text" },
+    { "id": "frame-03", "prompt": "Wedding rings and floral sprigs border decoration along the edges only, transparent center, fine line illustration style, gold and cream color palette, no text" },
+    { "id": "frame-04", "prompt": "Soft greenery and eucalyptus leaves border decoration along the edges only, transparent center, botanical illustration style, sage green and white color palette, no text" },
+    { "id": "frame-05", "prompt": "Delicate lace pattern border decoration along the edges only, transparent center, fine line illustration style, white and champagne color palette, no text" },
+    { "id": "frame-06", "prompt": "Hearts and tiny doves border decoration along the edges only, transparent center, elegant line illustration style, blush pink and gold color palette, no text" }
+  ],
+
+  "corporate": [
+    { "id": "frame-01", "prompt": "Minimal geometric corner accents border decoration along the edges only, transparent center, clean flat vector style, navy and vinotinto color palette, no text" },
+    { "id": "frame-02", "prompt": "Subtle abstract line pattern border decoration along the edges only, transparent center, modern flat vector style, grey and gold color palette, no text" },
+    { "id": "frame-03", "prompt": "Simple confetti dots border decoration along the edges only, transparent center, clean flat vector style, navy pink and white color palette, no text" },
+    { "id": "frame-04", "prompt": "Minimal starburst corner accents border decoration along the edges only, transparent center, modern flat vector style, gold and cream color palette, no text" },
+    { "id": "frame-05", "prompt": "Thin geometric frame lines border decoration along the edges only, transparent center, clean flat vector style, vinotinto and white color palette, no text" },
+    { "id": "frame-06", "prompt": "Subtle wave pattern border decoration along the edges only, transparent center, modern flat vector style, pink and navy color palette, no text" }
+  ]
+}
