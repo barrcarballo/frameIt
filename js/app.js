@@ -415,7 +415,7 @@ async function composeFinalImageBlob() {
   // El logo ancla cerca del borde inferior (no centrado en todo el canvas)
   // pero respetando el margen que IG Stories tapa con su propia UI abajo
   // (~15% de la altura) — así nunca queda escondido detrás de esa barra.
-  const bottomSafeMargin = EXPORT_H * 0.1;
+  const bottomSafeMargin = EXPORT_H * 0.05;
   const logoY = EXPORT_H - bottomSafeMargin - logoH;
   const clusterCy = logoY - logoGap - clusterH / 2;
 
