@@ -327,8 +327,8 @@ function loadImage(src) {
 // oscurecida sin sombra, -16.71° adelante a color con sombra) + logo claro
 // único al pie del conjunto. Mismo criterio visual que la tarjeta de
 // "Entrega" en pantalla, pero dibujado en canvas para poder subirlo.
-const EXPORT_W = 640;
-const EXPORT_H = 1138; // ~9:16, coherente con los fondos (retrato)
+const EXPORT_W = 1080;
+const EXPORT_H = 1920; // resolución real de IG Stories (9:16) — antes 640x1138 se veía pixelado a pantalla completa
 
 // Dibuja una tira (mat + celdas) rotada `deg` grados alrededor de (cx,cy).
 // `matColor`: color del mat (blanco para la tira de adelante, bordó para
@@ -394,7 +394,7 @@ async function composeFinalImageBlob() {
 
   drawCoverCrop(ctx, bgImg, bgImg.naturalWidth || bgImg.width, bgImg.naturalHeight || bgImg.height, EXPORT_W, EXPORT_H);
 
-  const stripW = EXPORT_W * 0.4;
+  const stripW = EXPORT_W * 0.48;
   const logoW = stripW * 0.65;
   const logoH = logoW * (42 / 113); // aspect ratio real de isologo-light.svg
   const logoGap = stripW * 0.1;
@@ -415,7 +415,7 @@ async function composeFinalImageBlob() {
   // El logo ancla cerca del borde inferior (no centrado en todo el canvas)
   // pero respetando el margen que IG Stories tapa con su propia UI abajo
   // (~15% de la altura) — así nunca queda escondido detrás de esa barra.
-  const bottomSafeMargin = EXPORT_H * 0.15;
+  const bottomSafeMargin = EXPORT_H * 0.1;
   const logoY = EXPORT_H - bottomSafeMargin - logoH;
   const clusterCy = logoY - logoGap - clusterH / 2;
 
