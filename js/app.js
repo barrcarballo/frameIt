@@ -26,6 +26,7 @@ let idleDeadline = null; // timestamp (ms) en que el idle timer actual dispara
 const session = {
   mode: null, // "single" | "strip"
   frame: "assets/frames/frame-01.png",
+  filter: "", // "" (sin filtro) | "bw" | "sepia" | "vintage" | "analog" — ver FILTERS
   background: "bg-01",
 };
 
@@ -106,6 +107,11 @@ async function initCamera() {
     CAMERA_VIDEO_IDS.forEach((id) => {
       document.getElementById(id).srcObject = stream;
     });
+    // Los circulitos de filtro también muestran el feed en vivo (cada uno
+    // con su propio CSS filter), igual criterio que los <video> de arriba.
+    document.querySelectorAll(".filter-swatch-video").forEach((el) => {
+      el.srcObject = stream;
+    });
   } catch (err) {
     console.warn("[FrameIt] No se pudo acceder a la webcam:", err);
     showCameraFallback();
@@ -126,6 +132,41 @@ function bindSelectionScreen() {
   });
 
   captureBtn.addEventListener("click", () => showScreen("capturing"));
+}
+
+// Mismo string de filter CSS reusado en 3 lugares: los circulitos de
+// preview, el <video> grande (pantallas 3 y 4), y ctx.filter en el canvas
+// al componer la foto final — el canvas 2D acepta exactamente la misma
+// sintaxis que el CSS "filter".
+const FILTERS = {
+  "": "none",
+  bw: "grayscale(1)",
+  sepia: "sepia(0.9) contrast(1.05)",
+  vintage: "sepia(0.2) saturate(1.2) contrast(0.85) brightness(1.1)",
+  analog: "saturate(1.6) contrast(1.1) brightness(0.92) sepia(0.15) hue-rotate(-6deg)",
+};
+
+function applySessionFilter() {
+  const css = FILTERS[session.filter] ?? "none";
+  ["cameraFeed", "captureFeed"].forEach((id) => {
+    document.getElementById(id).style.filter = css;
+  });
+}
+
+function bindFilterPicker() {
+  const swatches = document.querySelectorAll(".filter-swatch");
+  swatches.forEach((swatch) => {
+    const video = swatch.querySelector(".filter-swatch-video");
+    video.style.filter = FILTERS[swatch.dataset.filter] ?? "none";
+
+    swatch.addEventListener("click", () => {
+      // Tocar el filtro ya elegido lo saca (vuelve a "Normal").
+      session.filter = session.filter === swatch.dataset.filter ? "" : swatch.dataset.filter;
+      swatches.forEach((s) => s.classList.toggle("is-selected", s.dataset.filter === session.filter));
+      applySessionFilter();
+    });
+  });
+  swatches[0]?.classList.add("is-selected"); // "Normal" seleccionado por defecto
 }
 
 const CROP_RATIO = 106 / 97; // mismo ratio que .crop-guide y las celdas de foto del resto de la UI
@@ -193,6 +234,10 @@ async function capturePhoto() {
   const ctx = canvas.getContext("2d");
 
   ctx.save();
+  // ctx.filter acepta la misma sintaxis que el CSS "filter" — mismo string
+  // que ya se ve en el preview en vivo, aplicado SOLO a la foto (no al
+  // marco, que se dibuja después con el filter reseteado).
+  ctx.filter = FILTERS[session.filter] ?? "none";
   if (isLive) {
     // La webcam se muestra espejada (scaleX(-1) en CSS); la guardamos igual
     // a como la vio la persona en el preview.
@@ -512,6 +557,7 @@ function init() {
   bindWelcomeScreen();
   bindModeScreen();
   bindSelectionScreen();
+  bindFilterPicker();
   bindPreviewScreen();
   bindBackgroundScreen();
   bindIdleWatchers();
