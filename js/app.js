@@ -330,10 +330,12 @@ function loadImage(src) {
 const EXPORT_W = 640;
 const EXPORT_H = 1138; // ~9:16, coherente con los fondos (retrato)
 
-// Dibuja una tira (mat blanco + celdas) rotada `deg` grados alrededor de
-// (cx,cy). Devuelve el alto del bbox rotado, para poder ubicar el logo
-// debajo de la tira más baja de las dos.
-function drawRotatedStrip(ctx, photoImgs, cx, cy, w, deg, { brightness, shadow } = {}) {
+// Dibuja una tira (mat + celdas) rotada `deg` grados alrededor de (cx,cy).
+// `matColor`: color del mat (blanco para la tira de adelante, bordó para
+// la de atrás). `darken`: tapa cada foto con un overlay negro al 69%
+// (igual que el diseño original de Figma — no un filtro de brillo sobre
+// toda la tira). `shadow`: sombra proyectada (solo la tira de adelante).
+function drawRotatedStrip(ctx, photoImgs, cx, cy, w, deg, { matColor = "#ffffff", darken = false, shadow = false } = {}) {
   const pad = w * 0.075;
   const cellW = w - pad * 2;
   const cellH = cellW / CROP_RATIO;
@@ -345,7 +347,6 @@ function drawRotatedStrip(ctx, photoImgs, cx, cy, w, deg, { brightness, shadow }
   ctx.translate(cx, cy);
   ctx.rotate(rad);
 
-  if (brightness) ctx.filter = `brightness(${brightness})`;
   if (shadow) {
     ctx.shadowColor = "rgba(0,0,0,0.35)";
     ctx.shadowBlur = w * 0.05;
@@ -353,17 +354,20 @@ function drawRotatedStrip(ctx, photoImgs, cx, cy, w, deg, { brightness, shadow }
     ctx.shadowOffsetY = w * 0.07;
   }
 
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = matColor;
   ctx.beginPath();
   ctx.roundRect(-w / 2, -h / 2, w, h, w * 0.04);
   ctx.fill();
 
-  ctx.filter = "none";
   ctx.shadowColor = "transparent";
 
   let y = -h / 2 + pad;
   photoImgs.forEach((img) => {
     drawCoverCrop(ctx, img, img.naturalWidth || img.width, img.naturalHeight || img.height, cellW, cellH, -w / 2 + pad, y);
+    if (darken) {
+      ctx.fillStyle = "rgba(0,0,0,0.69)";
+      ctx.fillRect(-w / 2 + pad, y, cellW, cellH);
+    }
     y += cellH + gap;
   });
 
@@ -406,14 +410,20 @@ async function composeFinalImageBlob() {
   const bbox16 = Math.abs(stripW * Math.sin(rad16)) + Math.abs(hProbe * Math.cos(rad16));
   const clusterH = Math.max(bbox13, bbox16);
 
-  const blockH = clusterH + logoGap + logoH;
   const cx = EXPORT_W / 2;
-  const clusterCy = (EXPORT_H - blockH) / 2 + clusterH / 2;
 
-  drawRotatedStrip(ctx, photoImgs, cx, clusterCy, stripW, 13.49, { brightness: 0.55 });
+  // El logo ancla cerca del borde inferior (no centrado en todo el canvas)
+  // pero respetando el margen que IG Stories tapa con su propia UI abajo
+  // (~15% de la altura) — así nunca queda escondido detrás de esa barra.
+  const bottomSafeMargin = EXPORT_H * 0.15;
+  const logoY = EXPORT_H - bottomSafeMargin - logoH;
+  const clusterCy = logoY - logoGap - clusterH / 2;
+
+  // Atrás: mat bordó + overlay negro al 69% sobre cada foto (fiel al
+  // diseño original). Adelante: mat blanco + sombra proyectada.
+  drawRotatedStrip(ctx, photoImgs, cx, clusterCy, stripW, 13.49, { matColor: "#3d0303", darken: true });
   drawRotatedStrip(ctx, photoImgs, cx, clusterCy, stripW, -16.71, { shadow: true });
 
-  const logoY = clusterCy + clusterH / 2 + logoGap;
   ctx.drawImage(logoImg, (EXPORT_W - logoW) / 2, logoY, logoW, logoH);
 
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));

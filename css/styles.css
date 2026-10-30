@@ -610,6 +610,7 @@ video.camera-photo {
 }
 
 .print-strip__cell {
+  position: relative;
   width: 100%;
   aspect-ratio: 106 / 97; /* mismo ratio que .crop-guide en Captura */
   border-radius: 2px;
@@ -714,7 +715,8 @@ video.camera-photo {
   gap: 4px;
 }
 
-/* El mat claro envuelve solo las fotos; el logo queda afuera, debajo. */
+/* El mat envuelve solo las fotos; el logo queda afuera, debajo. Blanco en
+   la tira de adelante, bordó en la de atrás (fiel al diseño original). */
 .swatch-strip__mat {
   width: 100%;
   box-sizing: border-box;
@@ -725,8 +727,20 @@ video.camera-photo {
 
 .swatch-strip--back {
   transform: translate(-50%, -50%) rotate(13.49deg);
-  filter: brightness(0.55);
   z-index: 1;
+}
+
+.swatch-strip--back .swatch-strip__mat {
+  background: var(--color-vinotinto);
+}
+
+/* Overlay negro al 69% sobre cada foto de la tira de atrás — así se
+   diferencia de un simple filtro de brillo, igual que en Figma. */
+.swatch-strip--back .print-strip__cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.69);
 }
 
 .swatch-strip--front {
