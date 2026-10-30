@@ -142,3 +142,19 @@ mismo endpoint, específica para Vercel:
   de Vercel (Storage → Create Database → Blob) para que exista
   `BLOB_READ_WRITE_TOKEN` — sin eso, `api/upload-photo.js` va a fallar
   igual. No probado todavía contra un deploy real.
+
+**Actualización — probado en Vercel real, 2 bugs encontrados y arreglados:**
+1. El diálogo de Vercel para crear el Blob store ya no agrega
+   `BLOB_READ_WRITE_TOKEN` por defecto (cambió desde que se escribió la doc)
+   — hay un checkbox separado "Add a read-write token env var" que hay que
+   tildar a mano, más elegir Access: **Public** (por defecto viene Private).
+2. `composeFinalImageBlob()` tenía un bug real: el logo quedaba montado
+   sobre el borde del mat en vez de ir afuera, debajo (`footerSpace` estaba
+   restado de la altura reservada DEL mat, no sumado como espacio aparte).
+3. El usuario pidió que la imagen descargable tuviera el mismo efecto de
+   abanico (2 tiras rotadas 13.49°/-16.71°, una oscurecida, otra con
+   sombra) que ya se ve en pantalla — se reescribió para dibujarlo en
+   canvas con `ctx.rotate()` + `ctx.filter`/`ctx.shadow*`, replicando la
+   misma matemática de bbox rotado que ya se usaba en CSS.
+   **No verificado visualmente por mí** (sin forma de renderizar canvas en
+   esta sesión) — pendiente que el usuario confirme cómo quedó.
