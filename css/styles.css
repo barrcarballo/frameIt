@@ -378,47 +378,101 @@ video.camera-photo {
   pointer-events: none;
 }
 
-/* Selector de filtros: overlay flotante en la esquina de la cámara, no
-   ocupa espacio propio en la pantalla (como los filtros de IG/Snapchat). */
-.filter-picker {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 6;
-  display: flex;
-  gap: 10px;
+/* En la pantalla de selección la cámara es un poco más baja que el resto
+   (500px en vez de 544px) para hacerle lugar a las pestañas Marcos/Filtros
+   arriba de la fila de miniaturas, sin salirse del área de los brackets. */
+.screen--selection .camera-frame {
+  height: 500px;
 }
 
-.filter-swatch {
-  all: unset;
+.screen--selection .capture-btn {
+  top: 389px; /* 24px de margen respecto al borde inferior del marco (500px de alto) */
+}
+
+.picker-tabs {
+  position: absolute;
+  left: 42px;
+  bottom: 112px;
+  height: 28px;
   display: flex;
-  flex-direction: column;
+  gap: 8px;
+}
+
+.picker-tab {
+  all: unset;
+  box-sizing: border-box;
+  padding: 0 18px;
+  height: 28px;
+  display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  border-radius: 14px;
+  background: rgba(61, 3, 3, 0.12);
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 16px;
+  color: var(--color-vinotinto);
   cursor: pointer;
 }
 
-.filter-swatch-video {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  object-fit: cover;
-  object-position: center;
-  transform: scaleX(-1); /* espejado, igual que el preview principal */
-  border: 2px solid rgba(255, 222, 222, 0.6);
-  box-shadow: 0 2px 6px rgba(61, 3, 3, 0.3);
+.picker-tab.is-active {
+  background: var(--color-vinotinto);
+  color: var(--color-pink);
 }
 
-.filter-swatch.is-selected .filter-swatch-video {
+.picker-tab:focus-visible {
+  outline: 2px solid var(--color-red);
+  outline-offset: 2px;
+}
+
+/* Fila de miniaturas de filtro: mismo lugar/tamaño que .frame-thumbs
+   (se muestran una u otra, nunca las dos). */
+.filter-thumbs {
+  position: absolute;
+  left: 42px;
+  bottom: 24px;
+  width: 934px;
+  height: 80px;
+  display: flex;
+  gap: 14px;
+}
+
+.filter-thumb {
+  all: unset;
+  position: relative;
+  flex: 1;
+  height: 80px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #000;
+  cursor: pointer;
+  box-sizing: border-box;
+  border: 3px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filter-thumb.is-selected {
   border-color: var(--color-red);
-  border-width: 3px;
 }
 
-.filter-swatch-label {
+.filter-thumb-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.filter-thumb-label {
+  position: relative;
+  z-index: 1;
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 15px;
   color: var(--color-white);
-  text-shadow: 0 1px 2px rgba(61, 3, 3, 0.6);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
 
 .capture-btn {

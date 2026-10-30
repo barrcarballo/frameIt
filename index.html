@@ -85,36 +85,17 @@
         <img class="camera-photo" id="cameraFallback" src="assets/img/booth-photo.png" alt="" hidden />
         <img class="camera-frame-overlay" id="frameOverlay" src="assets/frames/frame-01.png" alt="" />
 
-        <!-- Filtros: overlay flotante, no ocupan espacio propio en la pantalla -->
-        <div class="filter-picker">
-          <button class="filter-swatch" type="button" data-filter="" aria-label="Sin filtro">
-            <video class="filter-swatch-video" autoplay muted playsinline></video>
-            <span class="filter-swatch-label">Normal</span>
-          </button>
-          <button class="filter-swatch" type="button" data-filter="bw" aria-label="Blanco y negro">
-            <video class="filter-swatch-video" autoplay muted playsinline></video>
-            <span class="filter-swatch-label">B&amp;N</span>
-          </button>
-          <button class="filter-swatch" type="button" data-filter="sepia" aria-label="Sepia">
-            <video class="filter-swatch-video" autoplay muted playsinline></video>
-            <span class="filter-swatch-label">Sepia</span>
-          </button>
-          <button class="filter-swatch" type="button" data-filter="vintage" aria-label="Vintage">
-            <video class="filter-swatch-video" autoplay muted playsinline></video>
-            <span class="filter-swatch-label">Vintage</span>
-          </button>
-          <button class="filter-swatch" type="button" data-filter="analog" aria-label="Analógico">
-            <video class="filter-swatch-video" autoplay muted playsinline></video>
-            <span class="filter-swatch-label">Analógico</span>
-          </button>
-        </div>
-
         <button class="capture-btn" type="button" aria-label="Continuar a la captura">
           <img src="assets/logo/camera-icon.svg" alt="" />
         </button>
       </div>
 
-      <div class="frame-thumbs">
+      <div class="picker-tabs">
+        <button class="picker-tab is-active" type="button" data-tab="frames">Marcos</button>
+        <button class="picker-tab" type="button" data-tab="filters">Filtros</button>
+      </div>
+
+      <div class="frame-thumbs" data-panel="frames">
         <button class="frame-thumb is-selected" type="button" data-frame="assets/frames/frame-01.png" aria-label="Marco 1">
           <img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" />
           <img class="frame-thumb-overlay" src="assets/frames/frame-01.png" alt="" />
@@ -138,6 +119,29 @@
         <button class="frame-thumb" type="button" data-frame="assets/frames/frame-06.png" aria-label="Marco 6">
           <img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" />
           <img class="frame-thumb-overlay" src="assets/frames/frame-06.png" alt="" />
+        </button>
+      </div>
+
+      <div class="filter-thumbs" data-panel="filters" hidden>
+        <button class="filter-thumb is-selected" type="button" data-filter="" aria-label="Sin filtro">
+          <video class="filter-thumb-video" autoplay muted playsinline></video>
+          <span class="filter-thumb-label">Normal</span>
+        </button>
+        <button class="filter-thumb" type="button" data-filter="bw" aria-label="Blanco y negro">
+          <video class="filter-thumb-video" autoplay muted playsinline></video>
+          <span class="filter-thumb-label">B&amp;N</span>
+        </button>
+        <button class="filter-thumb" type="button" data-filter="sepia" aria-label="Sepia">
+          <video class="filter-thumb-video" autoplay muted playsinline></video>
+          <span class="filter-thumb-label">Sepia</span>
+        </button>
+        <button class="filter-thumb" type="button" data-filter="vintage" aria-label="Vintage">
+          <video class="filter-thumb-video" autoplay muted playsinline></video>
+          <span class="filter-thumb-label">Vintage</span>
+        </button>
+        <button class="filter-thumb" type="button" data-filter="analog" aria-label="Analógico">
+          <video class="filter-thumb-video" autoplay muted playsinline></video>
+          <span class="filter-thumb-label">Analógico</span>
         </button>
       </div>
     </section>

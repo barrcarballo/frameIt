@@ -107,9 +107,9 @@ async function initCamera() {
     CAMERA_VIDEO_IDS.forEach((id) => {
       document.getElementById(id).srcObject = stream;
     });
-    // Los circulitos de filtro también muestran el feed en vivo (cada uno
+    // Las miniaturas de filtro también muestran el feed en vivo (cada una
     // con su propio CSS filter), igual criterio que los <video> de arriba.
-    document.querySelectorAll(".filter-swatch-video").forEach((el) => {
+    document.querySelectorAll(".filter-thumb-video").forEach((el) => {
       el.srcObject = stream;
     });
   } catch (err) {
@@ -154,19 +154,36 @@ function applySessionFilter() {
 }
 
 function bindFilterPicker() {
-  const swatches = document.querySelectorAll(".filter-swatch");
-  swatches.forEach((swatch) => {
-    const video = swatch.querySelector(".filter-swatch-video");
-    video.style.filter = FILTERS[swatch.dataset.filter] ?? "none";
+  const thumbs = document.querySelectorAll(".filter-thumb");
+  thumbs.forEach((thumb) => {
+    const video = thumb.querySelector(".filter-thumb-video");
+    video.style.filter = FILTERS[thumb.dataset.filter] ?? "none";
 
-    swatch.addEventListener("click", () => {
-      // Tocar el filtro ya elegido lo saca (vuelve a "Normal").
-      session.filter = session.filter === swatch.dataset.filter ? "" : swatch.dataset.filter;
-      swatches.forEach((s) => s.classList.toggle("is-selected", s.dataset.filter === session.filter));
+    thumb.addEventListener("click", () => {
+      session.filter = thumb.dataset.filter;
+      thumbs.forEach((t) => t.classList.toggle("is-selected", t === thumb));
       applySessionFilter();
     });
   });
-  swatches[0]?.classList.add("is-selected"); // "Normal" seleccionado por defecto
+}
+
+// Pestañas "Marcos" / "Filtros": alternan qué fila de miniaturas se ve,
+// reusando el mismo lugar en la pantalla en vez de sumar uno nuevo.
+function bindPickerTabs() {
+  const tabs = document.querySelectorAll(".picker-tab");
+  const panels = {
+    frames: document.querySelector('[data-panel="frames"]'),
+    filters: document.querySelector('[data-panel="filters"]'),
+  };
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      tabs.forEach((t) => t.classList.toggle("is-active", t === tab));
+      Object.entries(panels).forEach(([name, panel]) => {
+        panel.hidden = name !== tab.dataset.tab;
+      });
+    });
+  });
 }
 
 const CROP_RATIO = 106 / 97; // mismo ratio que .crop-guide y las celdas de foto del resto de la UI
@@ -558,6 +575,7 @@ function init() {
   bindModeScreen();
   bindSelectionScreen();
   bindFilterPicker();
+  bindPickerTabs();
   bindPreviewScreen();
   bindBackgroundScreen();
   bindIdleWatchers();
