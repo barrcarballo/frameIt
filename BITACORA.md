@@ -123,3 +123,22 @@ Pushear el proyecto a GitHub para deploy en Vercel, y arrancar dos features nuev
 - **Correr `tools/generate_frames.py` con una API key real** — todavía no se generó ningún marco nuevo, el script está armado pero sin probar contra la API de verdad (no tengo key del usuario).
 - Si se quiere soportar múltiples temáticas DESDE la UI (hoy el script las genera pero la cabina solo lee `assets/frames/` fijo), hace falta un selector de temática en la UI — no estaba pedido, queda anotado.
 - Resto de pendientes de sesiones anteriores sigue abierto: pantalla 08 Agradecimiento, cámara real vía OpenCV/v4l2 en la Pi, galería web pública real con analytics, compresión de assets.
+
+### Fix: QR funcional en Vercel (mismo día, segunda parte de la sesión)
+El usuario deployó a Vercel y el QR mostraba "No se pudo generar el QR" —
+esperado, server.py no corre ahí. Se armó una segunda implementación del
+mismo endpoint, específica para Vercel:
+- `package.json` (`"type":"module"`, dependencia `@vercel/blob`).
+- `api/upload-photo.js`: función serverless de Node. Guarda la foto en
+  **Vercel Blob** (`put()`, `access:"public"`) en vez de disco — el
+  filesystem de las funciones de Vercel no persiste entre pedidos, a
+  diferencia de `uploads/` en local. Devuelve `{"url": "/galeria.html?photo=<url del blob>"}`.
+- `galeria.html` (estático, en la raíz): misma UI/lógica que el `/galeria`
+  de `server.py` (foto + botón "Compartir" con Web Share API + descarga),
+  pero toma la foto de un query param en vez de una ruta fija.
+- `js/app.js` no se tocó — ya arma la URL del QR con lo que le devuelva
+  `/api/upload-photo`, sea cual sea el backend detrás.
+- **Pendiente del lado del usuario:** crear un Blob store en el proyecto
+  de Vercel (Storage → Create Database → Blob) para que exista
+  `BLOB_READ_WRITE_TOKEN` — sin eso, `api/upload-photo.js` va a fallar
+  igual. No probado todavía contra un deploy real.

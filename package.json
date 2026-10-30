@@ -1,0 +1,9 @@
+{
+  "name": "frameit",
+  "private": true,
+  "type": "module",
+  "description": "Backend mínimo para el deploy en Vercel: solo la función de subida de fotos (api/upload-photo.js). El frontend (index.html, css/, js/) y server.py (desarrollo local) no usan nada de esto.",
+  "dependencies": {
+    "@vercel/blob": "latest"
+  }
+}

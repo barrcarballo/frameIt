@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tu foto — FrameIt</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center;
+         justify-content:center; gap:20px; padding:24px; box-sizing:border-box;
+         background:#ffdede; font-family:-apple-system,system-ui,sans-serif; }
+  img { max-width:min(90vw,360px); width:100%; border-radius:16px; box-shadow:0 8px 24px rgba(61,3,3,.25); }
+  button, a.download {
+    font:inherit; font-size:18px; font-weight:600; border:none; border-radius:20px;
+    padding:14px 28px; cursor:pointer; text-decoration:none; text-align:center; width:min(90vw,320px);
+    box-sizing:border-box;
+  }
+  button { background:#3d0303; color:#ffdede; }
+  a.download { background:#950606; color:#ffdede; }
+  p.hint { font-size:14px; color:#3d0303; text-align:center; max-width:320px; margin:0; }
+</style>
+</head>
+<body>
+  <img id="photo" alt="Tu foto de FrameIt" />
+  <button id="shareBtn" onclick="sharePhoto()">Compartir</button>
+  <a class="download" id="downloadLink" download="frameit.png">Descargar foto</a>
+  <p class="hint" id="hint"></p>
+
+  <script>
+    const photoUrl = new URLSearchParams(location.search).get("photo");
+    const hint = document.getElementById("hint");
+
+    if (!photoUrl) {
+      hint.textContent = "No encontramos tu foto. Volvé a escanear el código desde la cabina.";
+      document.getElementById("shareBtn").hidden = true;
+      document.getElementById("downloadLink").hidden = true;
+    } else {
+      document.getElementById("photo").src = photoUrl;
+      document.getElementById("downloadLink").href = photoUrl;
+    }
+
+    async function sharePhoto() {
+      if (!photoUrl) return;
+      try {
+        const res = await fetch(photoUrl);
+        const blob = await res.blob();
+        const file = new File([blob], "frameit.png", { type: "image/png" });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: "FrameIt",
+            text: "¡Mirá mi foto de FrameIt! @frameit",
+          });
+          return;
+        }
+      } catch (err) {
+        if (err.name === "AbortError") return; // el usuario canceló, no es un error
+        console.warn("[FrameIt] No se pudo compartir:", err);
+      }
+      hint.textContent =
+        "Tu navegador no soporta compartir directo: mantené presionada la foto para guardarla y compartila desde tu galería.";
+    }
+  </script>
+</body>
+</html>
