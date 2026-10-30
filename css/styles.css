@@ -366,7 +366,8 @@ video.camera-photo {
 
 /* .camera-photo tiene la misma especificidad que [hidden] del navegador;
    sin esto, el atributo hidden del fallback quedaba ignorado. */
-.camera-photo[hidden] {
+.camera-photo[hidden],
+.camera-frame-overlay[hidden] {
   display: none;
 }
 
@@ -544,6 +545,9 @@ video.camera-photo {
   cursor: pointer;
   box-sizing: border-box;
   border: 3px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .frame-thumb.is-selected {
@@ -568,6 +572,17 @@ video.camera-photo {
 /* Espejado, igual que el resto de los preview en vivo */
 video.frame-thumb-photo {
   transform: scaleX(-1);
+}
+
+/* La opción "Sin marco" no tiene overlay de imagen, así que necesita un
+   texto para identificarse (las demás se reconocen por el marco mismo). */
+.frame-thumb-label {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  color: var(--color-white);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
 
 /* =========================================================

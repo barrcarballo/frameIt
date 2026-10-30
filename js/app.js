@@ -119,6 +119,13 @@ async function initCamera() {
   }
 }
 
+// session.frame puede ser "" ("Sin marco") — en ese caso el <img> overlay
+// se oculta en vez de quedar con un src vacío (ícono de imagen rota).
+function setFrameOverlay(imgEl, framePath) {
+  imgEl.hidden = !framePath;
+  if (framePath) imgEl.src = framePath;
+}
+
 function bindSelectionScreen() {
   const thumbs = document.querySelectorAll(".screen--selection .frame-thumb");
   const overlay = document.getElementById("frameOverlay");
@@ -127,7 +134,7 @@ function bindSelectionScreen() {
   thumbs.forEach((thumb) => {
     thumb.addEventListener("click", () => {
       session.frame = thumb.dataset.frame;
-      overlay.src = session.frame;
+      setFrameOverlay(overlay, session.frame);
       thumbs.forEach((t) => t.classList.toggle("is-selected", t === thumb));
     });
   });
@@ -268,11 +275,14 @@ async function capturePhoto() {
   // Marco generativo encima, sin espejar (es una decoración fija, no la
   // cara de la persona) — versión cuadrada, dibujada 1:1 sin recortar ni
   // estirar (su proporción ya es casi igual a la del canvas final).
-  try {
-    const frameImg = await preloadSquareFrame(session.frame);
-    ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-  } catch (err) {
-    console.warn("[FrameIt] No se pudo cargar el marco cuadrado:", err);
+  // session.frame === "" significa "Sin marco": no se compone nada encima.
+  if (session.frame) {
+    try {
+      const frameImg = await preloadSquareFrame(session.frame);
+      ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+    } catch (err) {
+      console.warn("[FrameIt] No se pudo cargar el marco cuadrado:", err);
+    }
   }
 
   return canvas.toDataURL("image/png");
@@ -558,12 +568,12 @@ async function uploadAndRenderQr() {
 // Hooks que corren cada vez que se entra a una pantalla en particular.
 const screenEnterHooks = {
   selection: () => {
-    document.getElementById("frameOverlay").src = session.frame;
+    setFrameOverlay(document.getElementById("frameOverlay"), session.frame);
   },
   capturing: () => {
     // La pantalla de captura no elige marco: hereda el que se seleccionó antes.
-    document.getElementById("captureFrameOverlay").src = session.frame;
-    preloadSquareFrame(session.frame); // listo en caché antes de que termine la cuenta regresiva
+    setFrameOverlay(document.getElementById("captureFrameOverlay"), session.frame);
+    if (session.frame) preloadSquareFrame(session.frame); // listo en caché antes de que termine la cuenta regresiva
     startShotSequence();
   },
   preview: renderPrintStrip,
