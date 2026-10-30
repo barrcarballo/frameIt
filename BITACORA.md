@@ -191,3 +191,24 @@ Los 6 PNG finales se redimensionaron de 1536×1024 a 1024px de ancho y se
 optimizó la compresión PNG — bajó el peso total de `assets/frames/` de
 12MB a 3.5MB sin pérdida visible de calidad (ver el otro pendiente de
 performance en Pi 3, parcialmente resuelto acá).
+
+### Marcos: landscape para preview, cuadrado solo para la foto final
+El usuario corrigió el enfoque: no reemplazar un set por otro, sino tener
+**los dos** — `assets/frames/*.png` (landscape, como estaban) para la vista
+previa grande de las pantallas 3/4, y `assets/frames/square/*.png` (1:1,
+los generados en la vuelta anterior) usados SOLO dentro de `capturePhoto()`
+al componer la foto final (que es casi cuadrada). `capturePhoto()` pasó a
+ser `async` para poder cargar el marco cuadrado correspondiente
+(`preloadSquareFrame`, con caché y precarga apenas se entra a "capturing",
+para no sumar latencia perceptible al momento de la captura).
+
+### Selector de filtros (B&N, sepia, vintage, analógico)
+Overlay flotante de 4 circulitos en la esquina de la cámara (pantalla 3),
+sin ocupar espacio fijo de layout (la pantalla ya estaba al límite de
+espacio vertical). Cada filtro es un string de CSS `filter` (`FILTERS` en
+app.js), reusado tal cual en 3 lugares: los circulitos de preview (cada uno
+con su propio `<video>` mostrando el mismo stream), el `<video>` grande de
+cámara, y `ctx.filter` en el canvas al componer la foto final — el canvas
+2D acepta la misma sintaxis que el CSS `filter`, así que es una sola
+definición por filtro sin duplicar lógica. El filter se aplica solo a la
+foto, no al marco (se resetea antes de dibujarlo encima).
