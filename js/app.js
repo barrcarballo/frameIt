@@ -322,12 +322,56 @@ function loadImage(src) {
   });
 }
 
-// Compone la foto final para descargar: fondo elegido + mat blanco con la
-// tira de fotos (1 o 3) + logo claro al pie — el mismo criterio visual que
-// la tarjeta de "Entrega", pero sin el abanico rotado (más simple de
-// dibujar en canvas, y el resultado se ve mejor como recuerdo descargable).
+// Compone la foto final para descargar: fondo elegido + 2 tiras blancas en
+// abanico (misma rotación que .swatch-strip en CSS: 13.49° atrás
+// oscurecida sin sombra, -16.71° adelante a color con sombra) + logo claro
+// único al pie del conjunto. Mismo criterio visual que la tarjeta de
+// "Entrega" en pantalla, pero dibujado en canvas para poder subirlo.
 const EXPORT_W = 640;
 const EXPORT_H = 1138; // ~9:16, coherente con los fondos (retrato)
+
+// Dibuja una tira (mat blanco + celdas) rotada `deg` grados alrededor de
+// (cx,cy). Devuelve el alto del bbox rotado, para poder ubicar el logo
+// debajo de la tira más baja de las dos.
+function drawRotatedStrip(ctx, photoImgs, cx, cy, w, deg, { brightness, shadow } = {}) {
+  const pad = w * 0.075;
+  const cellW = w - pad * 2;
+  const cellH = cellW / CROP_RATIO;
+  const gap = pad * 0.55;
+  const h = pad * 2 + photoImgs.length * cellH + (photoImgs.length - 1) * gap;
+  const rad = (deg * Math.PI) / 180;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rad);
+
+  if (brightness) ctx.filter = `brightness(${brightness})`;
+  if (shadow) {
+    ctx.shadowColor = "rgba(0,0,0,0.35)";
+    ctx.shadowBlur = w * 0.05;
+    ctx.shadowOffsetX = -w * 0.045;
+    ctx.shadowOffsetY = w * 0.07;
+  }
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.roundRect(-w / 2, -h / 2, w, h, w * 0.04);
+  ctx.fill();
+
+  ctx.filter = "none";
+  ctx.shadowColor = "transparent";
+
+  let y = -h / 2 + pad;
+  photoImgs.forEach((img) => {
+    drawCoverCrop(ctx, img, img.naturalWidth || img.width, img.naturalHeight || img.height, cellW, cellH, -w / 2 + pad, y);
+    y += cellH + gap;
+  });
+
+  ctx.restore();
+
+  // bbox rotado: |w·cos(a)| + |h·sin(a)| de ancho, |w·sin(a)| + |h·cos(a)| de alto
+  return Math.abs(w * Math.sin(rad)) + Math.abs(h * Math.cos(rad));
+}
 
 async function composeFinalImageBlob() {
   const photos = session.capturedPhotos;
@@ -346,36 +390,31 @@ async function composeFinalImageBlob() {
 
   drawCoverCrop(ctx, bgImg, bgImg.naturalWidth || bgImg.width, bgImg.naturalHeight || bgImg.height, EXPORT_W, EXPORT_H);
 
-  const matW = EXPORT_W * 0.44;
-  const matPad = matW * 0.06;
-  const cellW = matW - matPad * 2;
-  const cellH = cellW / CROP_RATIO;
-  const gap = matPad * 0.7;
-  // Alto del mat SOLO (fotos + padding) — el logo va afuera, no reservado
-  // adentro de esta altura (ese era el bug: quedaba montado sobre el mat).
-  const matH = matPad * 2 + photoImgs.length * cellH + (photoImgs.length - 1) * gap;
-  const matX = (EXPORT_W - matW) / 2;
-
-  const logoW = matW * 0.55;
+  const stripW = EXPORT_W * 0.4;
+  const logoW = stripW * 0.65;
   const logoH = logoW * (42 / 113); // aspect ratio real de isologo-light.svg
-  const logoGap = matPad * 1.3; // separación entre el mat y el logo
+  const logoGap = stripW * 0.1;
 
-  // Centra el bloque completo (mat + logo) en el canvas, no solo el mat.
-  const blockH = matH + logoGap + logoH;
-  const matY = (EXPORT_H - blockH) / 2;
+  // Alturas rotadas de ambas tiras (para saber cuál asoma más abajo) y
+  // centrado del bloque completo (abanico + logo) en el canvas.
+  const rad13 = (13.49 * Math.PI) / 180;
+  const rad16 = (-16.71 * Math.PI) / 180;
+  const padProbe = stripW * 0.075;
+  const cellWProbe = stripW - padProbe * 2;
+  const hProbe = padProbe * 2 + photoImgs.length * (cellWProbe / CROP_RATIO) + (photoImgs.length - 1) * padProbe * 0.55;
+  const bbox13 = Math.abs(stripW * Math.sin(rad13)) + Math.abs(hProbe * Math.cos(rad13));
+  const bbox16 = Math.abs(stripW * Math.sin(rad16)) + Math.abs(hProbe * Math.cos(rad16));
+  const clusterH = Math.max(bbox13, bbox16);
 
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.roundRect(matX, matY, matW, matH, matW * 0.04);
-  ctx.fill();
+  const blockH = clusterH + logoGap + logoH;
+  const cx = EXPORT_W / 2;
+  const clusterCy = (EXPORT_H - blockH) / 2 + clusterH / 2;
 
-  let cy = matY + matPad;
-  photoImgs.forEach((img) => {
-    drawCoverCrop(ctx, img, img.naturalWidth || img.width, img.naturalHeight || img.height, cellW, cellH, matX + matPad, cy);
-    cy += cellH + gap;
-  });
+  drawRotatedStrip(ctx, photoImgs, cx, clusterCy, stripW, 13.49, { brightness: 0.55 });
+  drawRotatedStrip(ctx, photoImgs, cx, clusterCy, stripW, -16.71, { shadow: true });
 
-  ctx.drawImage(logoImg, (EXPORT_W - logoW) / 2, matY + matH + logoGap, logoW, logoH);
+  const logoY = clusterCy + clusterH / 2 + logoGap;
+  ctx.drawImage(logoImg, (EXPORT_W - logoW) / 2, logoY, logoW, logoH);
 
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
