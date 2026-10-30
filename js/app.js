@@ -107,9 +107,10 @@ async function initCamera() {
     CAMERA_VIDEO_IDS.forEach((id) => {
       document.getElementById(id).srcObject = stream;
     });
-    // Las miniaturas de filtro también muestran el feed en vivo (cada una
-    // con su propio CSS filter), igual criterio que los <video> de arriba.
-    document.querySelectorAll(".filter-thumb-video").forEach((el) => {
+    // Las miniaturas de filtro y de marco también muestran el feed en vivo
+    // (cada una con su propio CSS filter / marco encima), igual criterio
+    // que los <video> grandes de arriba.
+    document.querySelectorAll(".filter-thumb-video, .frame-thumb-photo").forEach((el) => {
       el.srcObject = stream;
     });
   } catch (err) {

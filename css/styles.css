@@ -565,6 +565,11 @@ video.camera-photo {
   object-fit: fill;
 }
 
+/* Espejado, igual que el resto de los preview en vivo */
+video.frame-thumb-photo {
+  transform: scaleX(-1);
+}
+
 /* =========================================================
    04 — Captura
    ========================================================= */
