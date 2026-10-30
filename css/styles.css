@@ -378,39 +378,33 @@ video.camera-photo {
   pointer-events: none;
 }
 
-/* En la pantalla de selección la cámara es un poco más baja que el resto
-   (500px en vez de 544px) para hacerle lugar a las pestañas Marcos/Filtros
-   arriba de la fila de miniaturas, sin salirse del área de los brackets. */
-.screen--selection .camera-frame {
-  height: 500px;
-}
-
-.screen--selection .capture-btn {
-  top: 389px; /* 24px de margen respecto al borde inferior del marco (500px de alto) */
-}
-
+/* Pestañas Marcos/Filtros apiladas a la izquierda, del mismo alto que la
+   fila de miniaturas (80px) — no hace falta achicar la cámara para esto,
+   ocupan el mismo lugar que antes usaba sola la fila de miniaturas. */
 .picker-tabs {
   position: absolute;
   left: 42px;
-  bottom: 112px;
-  height: 28px;
+  bottom: 24px;
+  width: 130px;
+  height: 80px;
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .picker-tab {
   all: unset;
   box-sizing: border-box;
-  padding: 0 18px;
-  height: 28px;
+  flex: 1;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
+  border-radius: 20px;
   background: rgba(61, 3, 3, 0.12);
   font-family: var(--font-ui);
   font-weight: 400;
-  font-size: 16px;
+  font-size: 18px;
   color: var(--color-vinotinto);
   cursor: pointer;
 }
@@ -425,13 +419,26 @@ video.camera-photo {
   outline-offset: 2px;
 }
 
+/* Tira de miniaturas: arranca después de las pestañas, con scroll
+   horizontal si no entran todas (no hace falta que entren todas). */
+.frame-thumbs,
+.filter-thumbs {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.frame-thumbs::-webkit-scrollbar,
+.filter-thumbs::-webkit-scrollbar {
+  display: none;
+}
+
 /* Fila de miniaturas de filtro: mismo lugar/tamaño que .frame-thumbs
    (se muestran una u otra, nunca las dos). */
 .filter-thumbs {
   position: absolute;
-  left: 42px;
+  left: 186px; /* 42 + 130 (pestañas) + 14 (gap) */
   bottom: 24px;
-  width: 934px;
+  width: 790px;
   height: 80px;
   display: flex;
   gap: 14px;
@@ -440,7 +447,7 @@ video.camera-photo {
 .filter-thumb {
   all: unset;
   position: relative;
-  flex: 1;
+  flex: 0 0 144px;
   height: 80px;
   border-radius: 20px;
   overflow: hidden;
@@ -509,6 +516,13 @@ video.camera-photo {
   height: 80px;
   display: flex;
   gap: 14px;
+}
+
+/* En la pantalla de selección hay pestañas Marcos/Filtros a la izquierda;
+   la tira de miniaturas arranca después y el resto se recorre con scroll. */
+.screen--selection .frame-thumbs {
+  left: 186px; /* 42 + 130 (pestañas) + 14 (gap) */
+  width: 790px;
 }
 
 .frame-thumb {
