@@ -432,6 +432,14 @@ video.camera-photo {
   display: none;
 }
 
+/* .frame-thumbs/.filter-thumbs fuerzan display:flex, misma especificidad
+   que [hidden] del navegador — sin esto, el panel oculto se mostraba igual
+   superpuesto al visible (mismo bug que ya pasó con .camera-photo[hidden]). */
+.frame-thumbs[hidden],
+.filter-thumbs[hidden] {
+  display: none;
+}
+
 /* Fila de miniaturas de filtro: mismo lugar/tamaño que .frame-thumbs
    (se muestran una u otra, nunca las dos). */
 .filter-thumbs {
