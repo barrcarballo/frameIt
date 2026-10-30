@@ -351,10 +351,18 @@ async function composeFinalImageBlob() {
   const cellW = matW - matPad * 2;
   const cellH = cellW / CROP_RATIO;
   const gap = matPad * 0.7;
-  const footerSpace = matPad * 2.2;
-  const matH = matPad * 2 + photoImgs.length * cellH + (photoImgs.length - 1) * gap + footerSpace;
+  // Alto del mat SOLO (fotos + padding) — el logo va afuera, no reservado
+  // adentro de esta altura (ese era el bug: quedaba montado sobre el mat).
+  const matH = matPad * 2 + photoImgs.length * cellH + (photoImgs.length - 1) * gap;
   const matX = (EXPORT_W - matW) / 2;
-  const matY = (EXPORT_H - matH) / 2;
+
+  const logoW = matW * 0.55;
+  const logoH = logoW * (42 / 113); // aspect ratio real de isologo-light.svg
+  const logoGap = matPad * 1.3; // separación entre el mat y el logo
+
+  // Centra el bloque completo (mat + logo) en el canvas, no solo el mat.
+  const blockH = matH + logoGap + logoH;
+  const matY = (EXPORT_H - blockH) / 2;
 
   ctx.fillStyle = "#ffffff";
   ctx.beginPath();
@@ -367,9 +375,7 @@ async function composeFinalImageBlob() {
     cy += cellH + gap;
   });
 
-  const logoW = matW * 0.55;
-  const logoH = logoW * (42 / 113); // aspect ratio real de isologo-light.svg
-  ctx.drawImage(logoImg, (EXPORT_W - logoW) / 2, matY + matH - footerSpace * 0.55, logoW, logoH);
+  ctx.drawImage(logoImg, (EXPORT_W - logoW) / 2, matY + matH + logoGap, logoW, logoH);
 
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
