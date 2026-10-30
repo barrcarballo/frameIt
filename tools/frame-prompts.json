@@ -1,13 +1,15 @@
 {
   "_comment": "Prompts guardados para generar marcos por IA (tools/generate_frames.py). Cada set tiene hasta 6 entradas (frame-01..06), un set por temática/evento. 'default' reemplaza los marcos estáticos actuales en assets/frames/.",
 
+  "_formato": "Pedir SIEMPRE formato cuadrado (Square, 1:1) al generar — es la proporción real del recorte final (CROP_RATIO ~106:97 en app.js), evita que el marco quede estirado al componerlo.",
+
   "default": [
-    { "id": "frame-01", "prompt": "Scattered holographic iridescent stars in gold, red, blue, green and silver, glossy 3D sticker style, varied sizes, floating mostly near the edges with a clear empty area in the center, no text" },
-    { "id": "frame-02", "prompt": "Ornate vintage red lace doily border frame, intricate crochet pattern along all four edges only, transparent center, fine detailed line art style, no text" },
-    { "id": "frame-03", "prompt": "Soft pink scalloped border frame with small red hearts and stars along the edge, pastel pink border area, transparent center, cute flat illustration style, no text" },
-    { "id": "frame-04", "prompt": "Delicate string of cream pearls forming a thin rounded border frame along the edges only, transparent center and transparent background between pearls, elegant minimalist style, no text" },
-    { "id": "frame-05", "prompt": "Scattered pink, blue and silver gemstones, crystals, pearls and tiny sparkle stars, glossy jewel sticker style, floating mostly near the edges with a clear empty area in the center, no text" },
-    { "id": "frame-06", "prompt": "Vintage ornate oval picture frame in sage green with delicate engraved floral vine border, rectangular outer edge, oval transparent cutout in the center, antique elegant style, no text" }
+    { "id": "frame-01", "prompt": "Square aspect ratio (1:1). Scattered holographic iridescent stars in gold, red, blue, green and silver, glossy 3D sticker style, varied sizes, floating mostly near the edges with a clear empty area in the center, no text" },
+    { "id": "frame-02", "prompt": "Square aspect ratio (1:1). Ornate vintage red lace doily border frame, intricate crochet pattern along all four edges only, transparent center, fine detailed line art style, no text" },
+    { "id": "frame-03", "prompt": "Square aspect ratio (1:1). Soft pink scalloped border frame with small red hearts and stars along the edge, pastel pink border area, transparent center, cute flat illustration style, no text" },
+    { "id": "frame-04", "prompt": "Square aspect ratio (1:1). Delicate string of cream pearls forming a thin rounded border frame along the edges only, transparent center and transparent background between pearls, elegant minimalist style, no text" },
+    { "id": "frame-05", "prompt": "Square aspect ratio (1:1). Scattered pink, blue and silver gemstones, crystals, pearls and tiny sparkle stars, glossy jewel sticker style, floating mostly near the edges with a clear empty area in the center, no text" },
+    { "id": "frame-06", "prompt": "Square aspect ratio (1:1). Vintage ornate oval picture frame in sage green with delicate engraved floral vine border, rectangular outer edge, oval transparent cutout in the center, antique elegant style, no text" }
   ],
 
   "boda": [
