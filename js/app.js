@@ -450,12 +450,13 @@ const EXPORT_H = 1920; // resolución real de IG Stories (9:16) — antes 640x11
 // la de atrás). `darken`: tapa cada foto con un overlay negro al 69%
 // (igual que el diseño original de Figma — no un filtro de brillo sobre
 // toda la tira). `shadow`: sombra proyectada (solo la tira de adelante).
-function drawRotatedStrip(ctx, photoImgs, cx, cy, w, deg, { matColor = "#ffffff", darken = false, shadow = false } = {}) {
+function drawRotatedStrip(ctx, photoImgs, cx, cy, w, deg, { matColor = "#ffffff", darken = false, shadow = false, bottomPad } = {}) {
   const pad = w * 0.075;
+  const padBottom = bottomPad ?? pad; // más grueso en modo "single" — silueta de polaroid real
   const cellW = w - pad * 2;
   const cellH = cellW / CROP_RATIO;
   const gap = pad * 0.55;
-  const h = pad * 2 + photoImgs.length * cellH + (photoImgs.length - 1) * gap;
+  const h = pad + photoImgs.length * cellH + (photoImgs.length - 1) * gap + padBottom;
   const rad = (deg * Math.PI) / 180;
 
   ctx.save();
@@ -516,13 +517,18 @@ async function composeFinalImageBlob() {
   const logoH = logoW * (42 / 113); // aspect ratio real de isologo-light.svg
   const logoGap = stripW * 0.1;
 
+  // En modo "single" el mat lleva un margen inferior grueso (silueta de
+  // polaroid real), no el parejo que usa la tira de 3 fotos.
+  const isSingle = session.mode === "single";
+  const bottomPad = isSingle ? stripW * 0.22 : undefined;
+
   // Alturas rotadas de ambas tiras (para saber cuál asoma más abajo) y
   // centrado del bloque completo (abanico + logo) en el canvas.
   const rad13 = (13.49 * Math.PI) / 180;
   const rad16 = (-16.71 * Math.PI) / 180;
   const padProbe = stripW * 0.075;
   const cellWProbe = stripW - padProbe * 2;
-  const hProbe = padProbe * 2 + photoImgs.length * (cellWProbe / CROP_RATIO) + (photoImgs.length - 1) * padProbe * 0.55;
+  const hProbe = padProbe + photoImgs.length * (cellWProbe / CROP_RATIO) + (photoImgs.length - 1) * padProbe * 0.55 + (bottomPad ?? padProbe);
   const bbox13 = Math.abs(stripW * Math.sin(rad13)) + Math.abs(hProbe * Math.cos(rad13));
   const bbox16 = Math.abs(stripW * Math.sin(rad16)) + Math.abs(hProbe * Math.cos(rad16));
   const clusterH = Math.max(bbox13, bbox16);
@@ -538,8 +544,8 @@ async function composeFinalImageBlob() {
 
   // Atrás: mat bordó + overlay negro al 69% sobre cada foto (fiel al
   // diseño original). Adelante: mat blanco + sombra proyectada.
-  drawRotatedStrip(ctx, photoImgs, cx, clusterCy, stripW, 13.49, { matColor: "#3d0303", darken: true });
-  drawRotatedStrip(ctx, photoImgs, cx, clusterCy, stripW, -16.71, { shadow: true });
+  drawRotatedStrip(ctx, photoImgs, cx, clusterCy, stripW, 13.49, { matColor: "#3d0303", darken: true, bottomPad });
+  drawRotatedStrip(ctx, photoImgs, cx, clusterCy, stripW, -16.71, { shadow: true, bottomPad });
 
   ctx.drawImage(logoImg, (EXPORT_W - logoW) / 2, logoY, logoW, logoH);
 

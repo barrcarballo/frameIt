@@ -899,6 +899,12 @@ video.frame-thumb-photo {
   width: 140px;
 }
 
+/* Margen inferior grueso en el mat blanco — la silueta clásica de una
+   polaroid (foto arriba, "lengüeta" en blanco abajo), no un borde parejo. */
+.swatch-strip--single .swatch-strip__mat {
+  padding: 8px 8px 28px;
+}
+
 /* El mat envuelve solo las fotos; el logo queda afuera, debajo. Blanco en
    la tira de adelante, bordó en la de atrás (fiel al diseño original). */
 .swatch-strip__mat {
