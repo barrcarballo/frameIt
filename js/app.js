@@ -359,6 +359,9 @@ function fillPrintStripPhotos(container) {
 
 function renderPrintStrip() {
   fillPrintStripPhotos(document.getElementById("printStripPhotos"));
+  // En modo "single" la tarjeta tiene 1 sola foto — se agranda para
+  // aprovechar el espacio (la tarjeta chica está pensada para 3 celdas).
+  document.getElementById("printStrip").classList.toggle("print-strip--single", session.mode === "single");
 }
 
 function bindPreviewScreen() {

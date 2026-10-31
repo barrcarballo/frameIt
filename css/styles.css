@@ -750,6 +750,18 @@ video.frame-thumb-photo {
   gap: 8px;
 }
 
+/* Modo "single": 1 sola foto, no 3 — la tarjeta chica (pensada para la
+   tira) la dejaba diminuta. Se agranda, misma posición/proporciones. */
+.print-strip--single {
+  width: 320px;
+  padding: 20px 18px;
+  gap: 16px;
+}
+
+.print-strip--single .print-strip__footer img {
+  width: 238px;
+}
+
 .print-strip__photos {
   display: flex;
   flex-direction: column;
