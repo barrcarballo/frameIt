@@ -752,14 +752,17 @@ video.frame-thumb-photo {
 
 /* Modo "single": 1 sola foto, no 3 — la tarjeta chica (pensada para la
    tira) la dejaba diminuta. Se agranda, misma posición/proporciones. */
+/* Modo "single": mat blanco y margen inferior grueso con el logo adentro —
+   la silueta clásica de una polaroid, no la tarjeta bordó de la tira. */
 .print-strip--single {
   width: 320px;
-  padding: 20px 18px;
-  gap: 16px;
+  padding: 20px 20px 36px;
+  gap: 18px;
+  background: var(--color-white);
 }
 
-.print-strip--single .print-strip__footer img {
-  width: 238px;
+.print-strip--single .print-strip__footer-logo {
+  width: 170px;
 }
 
 .print-strip__photos {
@@ -790,9 +793,23 @@ video.frame-thumb-photo {
   width: 100%;
 }
 
-.print-strip__footer img {
+.print-strip__footer-logo {
   width: 85px;
   height: auto;
+}
+
+/* Tira: logo claro sobre mat bordó (default). Single: logo oscuro sobre
+   mat blanco — se togglean, nunca los dos a la vez. */
+.print-strip__footer-logo--dark {
+  display: none;
+}
+
+.print-strip--single .print-strip__footer-logo--light {
+  display: none;
+}
+
+.print-strip--single .print-strip__footer-logo--dark {
+  display: block;
 }
 
 /* =========================================================

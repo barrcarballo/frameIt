@@ -202,7 +202,11 @@
       <div class="print-strip" id="printStrip">
         <div class="print-strip__photos" id="printStripPhotos"></div>
         <div class="print-strip__footer">
-          <img src="assets/logo/isologo-light.svg" alt="Frame it" />
+          <!-- Mat bordó (tira) usa el logo claro; mat blanco tipo polaroid
+               (foto individual) usa el oscuro — se togglean por CSS según
+               .print-strip--single, ver styles.css -->
+          <img class="print-strip__footer-logo print-strip__footer-logo--light" src="assets/logo/isologo-light.svg" alt="Frame it" />
+          <img class="print-strip__footer-logo print-strip__footer-logo--dark" src="assets/logo/isologo.svg" alt="Frame it" />
         </div>
       </div>
 
