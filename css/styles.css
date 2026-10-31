@@ -875,6 +875,13 @@ video.frame-thumb-photo {
   gap: 4px;
 }
 
+/* Modo "single": 1 sola foto, no 3 — mismo criterio que .print-strip--single
+   en Preview. Comparte clase entre las tarjetas de fondo (pantalla 6) y la
+   de Entrega (7), ambas usan .swatch-strip. */
+.swatch-strip--single {
+  width: 140px;
+}
+
 /* El mat envuelve solo las fotos; el logo queda afuera, debajo. Blanco en
    la tira de adelante, bordó en la de atrás (fiel al diseño original). */
 .swatch-strip__mat {

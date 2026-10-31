@@ -369,8 +369,19 @@ function bindPreviewScreen() {
   document.getElementById("confirmBtn").addEventListener("click", () => showScreen("background"));
 }
 
+// Mismo criterio que en Preview: en modo "single" la tarjeta de 1 foto se
+// agranda (la chica está pensada para 3 celdas). Afecta a .swatch-strip,
+// compartida por las tarjetas de fondo (pantalla 6) y la de Entrega (7).
+function applySingleModeSizing() {
+  const isSingle = session.mode === "single";
+  document.querySelectorAll(".swatch-strip").forEach((el) => {
+    el.classList.toggle("swatch-strip--single", isSingle);
+  });
+}
+
 function renderBackgroundSwatches() {
   document.querySelectorAll("[data-swatch-photos]").forEach(fillPrintStripPhotos);
+  applySingleModeSizing();
 }
 
 function bindBackgroundScreen() {
@@ -412,6 +423,7 @@ function renderExportPrint() {
   const card = document.getElementById("exportPrint");
   card.style.backgroundImage = `url('assets/img/${session.background}.png')`;
   document.querySelectorAll("[data-export-photos]").forEach(fillPrintStripPhotos);
+  applySingleModeSizing();
   startExportCountdown();
   uploadAndRenderQr();
 }
@@ -497,7 +509,9 @@ async function composeFinalImageBlob() {
 
   drawCoverCrop(ctx, bgImg, bgImg.naturalWidth || bgImg.width, bgImg.naturalHeight || bgImg.height, EXPORT_W, EXPORT_H);
 
-  const stripW = EXPORT_W * 0.48;
+  // En modo "single" la tira tiene 1 sola foto, no 3 — se agranda (logo y
+  // separaciones escalan solos porque están definidos en función de stripW).
+  const stripW = EXPORT_W * (session.mode === "single" ? 0.62 : 0.48);
   const logoW = stripW * 0.65;
   const logoH = logoW * (42 / 113); // aspect ratio real de isologo-light.svg
   const logoGap = stripW * 0.1;
