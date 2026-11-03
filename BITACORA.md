@@ -295,3 +295,12 @@ dure 10s reales al compartirse (los clips grabados son de ~2s cada uno).
 (canvas + `MediaRecorder`, con `ctx.filter` corriendo en cada frame) es
 bastante más pesado que la foto estática — falta probarlo en la
 Raspberry Pi 3 real, no solo en desktop.
+
+**Ajuste:** al principio el QR se mostraba solo-foto apenas estaba lista
+y se regeneraba ~10s después agregando el video — si alguien escaneaba
+antes de esos 10s, el link que se llevaba ya no tenía el toggle Live y
+había que volver a escanear. El usuario pidió esperar a tener las dos
+opciones antes de mostrar nada: ahora `uploadAndRenderQr()` deja un
+indicador "Preparando QR..." en el lugar del QR mientras se componen y
+suben la foto y la Live Photo, y recién renderiza un único QR (ya con
+`&video=` si salió bien) cuando terminan las dos.
