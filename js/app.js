@@ -837,14 +837,15 @@ function renderExportQr(container, galleryQuery) {
   });
 }
 
-// Sube la foto compuesta y renderiza un QR real apuntando a /galeria. Si
-// algo falla (sin fotos, servidor caído), deja un mensaje en vez de romper
-// la pantalla. La Live Photo final (~10s, ver composeFinalVideoBlob) tarda
-// bastante más en armarse/subirse, así que corre aparte, SIN bloquear el QR
-// de la foto: si sale bien, el QR se regenera en el mismo lugar agregando
-// el link del video.
+// Compone y sube la foto final y la Live Photo final (~10s, ver
+// composeFinalVideoBlob), y recién ahí renderiza el QR — ya con las dos
+// opciones adentro, para que en /galeria el toggle Foto/Live esté siempre
+// disponible apenas se escanea (nunca hay que volver a escanear). Mientras
+// tanto deja un indicador en el lugar del QR; si algo falla (sin fotos,
+// servidor caído), deja un mensaje de error en vez de romper la pantalla.
 async function uploadAndRenderQr() {
   const qrContainer = document.getElementById("exportQr");
+  qrContainer.textContent = "Preparando QR...";
 
   const photoBlob = await composeFinalImageBlob();
   if (!photoBlob) {
@@ -861,16 +862,19 @@ async function uploadAndRenderQr() {
     return;
   }
 
-  renderExportQr(qrContainer, `photo=${encodeURIComponent(photoUrl)}`);
+  // Si la Live Photo falla (clips incompletos, sin soporte de MediaRecorder,
+  // servidor caído), no se rompe el QR — se comparte solo la foto.
+  let videoUrl = null;
+  try {
+    const videoBlob = await composeFinalVideoBlob();
+    if (videoBlob) videoUrl = await uploadAsset("/api/upload-video", videoBlob, "video/webm");
+  } catch (err) {
+    console.warn("[FrameIt] No se pudo subir la Live Photo (se comparte solo la foto):", err);
+  }
 
-  composeFinalVideoBlob()
-    .then((videoBlob) => (videoBlob ? uploadAsset("/api/upload-video", videoBlob, "video/webm") : null))
-    .then((videoUrl) => {
-      if (videoUrl) {
-        renderExportQr(qrContainer, `photo=${encodeURIComponent(photoUrl)}&video=${encodeURIComponent(videoUrl)}`);
-      }
-    })
-    .catch((err) => console.warn("[FrameIt] No se pudo subir la Live Photo (se comparte solo la foto):", err));
+  let query = `photo=${encodeURIComponent(photoUrl)}`;
+  if (videoUrl) query += `&video=${encodeURIComponent(videoUrl)}`;
+  renderExportQr(qrContainer, query);
 }
 
 const WELCOME_LOOP_MS = 3000;
