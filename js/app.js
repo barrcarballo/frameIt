@@ -21,6 +21,7 @@ const DELIVERY_TIMEOUT_MS = 2 * 60 * 1000; // entrega / agradecimiento
 let currentScreen = "welcome";
 let idleTimer = null;
 let idleDeadline = null; // timestamp (ms) en que el idle timer actual dispara
+let welcomeLoopTimer = null;
 
 // Estado de la sesión de captura en curso (modo elegido, marco elegido, etc.)
 const session = {
@@ -39,6 +40,7 @@ function showScreen(name) {
     section.classList.toggle("is-active", section.dataset.screen === name);
   });
   clearInterval(exportCountdownTimer); // se re-arma en el hook de "export" si corresponde
+  clearInterval(welcomeLoopTimer); // se re-arma en el hook de "welcome" si corresponde
   currentScreen = name;
   resetIdleTimer();
   screenEnterHooks[name]?.();
@@ -588,8 +590,29 @@ async function uploadAndRenderQr() {
   }
 }
 
+const WELCOME_LOOP_MS = 4000;
+
+// "Loop de marca" de la pantalla de bienvenida: alterna cada 4s entre la
+// variante rosa (logo bicolor) y la bordó (logo claro) — dos versiones del
+// mismo diseño de Figma.
+function startWelcomeLoop() {
+  clearInterval(welcomeLoopTimer);
+  const screen = document.getElementById("welcomeScreen");
+  const logo = document.getElementById("welcomeLogo");
+
+  // Siempre arranca en la variante rosa, nunca heredada de la visita anterior.
+  screen.classList.remove("is-alt");
+  logo.src = "assets/logo/isologo.svg";
+
+  welcomeLoopTimer = setInterval(() => {
+    const isAlt = screen.classList.toggle("is-alt");
+    logo.src = isAlt ? "assets/logo/isologo-light.svg" : "assets/logo/isologo.svg";
+  }, WELCOME_LOOP_MS);
+}
+
 // Hooks que corren cada vez que se entra a una pantalla en particular.
 const screenEnterHooks = {
+  welcome: startWelcomeLoop,
   selection: () => {
     setFrameOverlay(document.getElementById("frameOverlay"), session.frame);
   },

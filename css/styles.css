@@ -126,6 +126,7 @@ body {
   position: absolute;
   inset: 0;
   background: rgba(255, 222, 222, 0.8);
+  transition: background-color 1s ease;
 }
 
 .screen--welcome .welcome-content {
@@ -149,6 +150,18 @@ body {
   font-weight: 400;
   font-size: 40px;
   color: var(--color-vinotinto);
+  transition: color 1s ease;
+}
+
+/* Variante oscura: alterna con la rosa cada pocos segundos (loop de marca
+   en la pantalla idle), calcada de la segunda versión de Figma — mismo
+   fondo, tint bordó en vez de rosa, logo e isologo en su versión clara. */
+.screen--welcome.is-alt .bg-tint {
+  background: rgba(61, 3, 3, 0.9);
+}
+
+.screen--welcome.is-alt .tap-to-start {
+  color: var(--color-pink);
 }
 
 /* =========================================================
