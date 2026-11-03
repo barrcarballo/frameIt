@@ -197,6 +197,13 @@
 
       <h1 class="preview-title">Preview</h1>
 
+      <!-- Toggle Foto/Live: arranca oculto, aparece cuando el boomerang
+           terminó de armarse en background (ver updatePreviewLiveToggle) -->
+      <div class="preview-view-tabs" id="previewViewTabs" hidden>
+        <button class="picker-tab is-active" type="button" data-view="photo">Foto</button>
+        <button class="picker-tab" type="button" data-view="live">Live</button>
+      </div>
+
       <!-- Las celdas se generan por JS según session.mode (1 foto para
            "single", 3 para "strip") y usan session.capturedPhotos. -->
       <div class="print-strip" id="printStrip">
@@ -209,6 +216,10 @@
           <img class="print-strip__footer-logo print-strip__footer-logo--dark" src="assets/logo/isologo.svg" alt="Frame it" />
         </div>
       </div>
+
+      <!-- Mismo recuadro que .print-strip (tamaño/posición vía JS), pero
+           mostrando el boomerang en loop en vez de la tira estática. -->
+      <video class="boomerang-preview" id="boomerangPreview" loop muted playsinline hidden></video>
 
       <p class="preview-heading">¡Foto lista!</p>
       <p class="preview-question">¿Te gustó?</p>

@@ -22,6 +22,7 @@ let currentScreen = "welcome";
 let idleTimer = null;
 let idleDeadline = null; // timestamp (ms) en que el idle timer actual dispara
 let welcomeLoopTimer = null;
+let cameraStream = null; // MediaStream compartido, lo usa initCamera() y el boomerang
 
 // Estado de la sesión de captura en curso (modo elegido, marco elegido, etc.)
 const session = {
@@ -29,6 +30,7 @@ const session = {
   frame: "assets/frames/frame-01.png",
   filter: "", // "" (sin filtro) | "bw" | "sepia" | "vintage" | "analog" — ver FILTERS
   background: "bg-01",
+  boomerangUrl: null, // object URL del último boomerang armado (ver buildBoomerang)
 };
 
 function showScreen(name) {
@@ -106,6 +108,7 @@ async function initCamera() {
       video: { facingMode: "user" },
       audio: false,
     });
+    cameraStream = stream; // guardado global: lo necesita el boomerang (MediaRecorder)
     CAMERA_VIDEO_IDS.forEach((id) => {
       document.getElementById(id).srcObject = stream;
     });
@@ -290,6 +293,124 @@ async function capturePhoto() {
   return canvas.toDataURL("image/png");
 }
 
+// Boomerang: clip cortito adelante+reversa, armado una sola vez por sesión
+// (en la última toma, no una por foto). Captura frames en vivo del stream
+// (requestVideoFrameCallback, liviano — no graba/decodifica un archivo
+// intermedio) y los recodifica forward+reverse con MediaRecorder sobre un
+// canvas. CPU-intensivo: probado en desktop, falta validar en la Pi 3.
+const BOOMERANG_DURATION_MS = 1500;
+const BOOMERANG_FPS = 12;
+
+function captureFramesFromStream(stream, durationMs, fps) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+
+    const frames = [];
+    const intervalMs = 1000 / fps;
+    let lastCapture = 0;
+    let stopped = false;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    function onFrame(now) {
+      if (stopped) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      if (frames.length === 0 || now - lastCapture >= intervalMs) {
+        ctx.drawImage(video, 0, 0);
+        frames.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        lastCapture = now;
+      }
+      video.requestVideoFrameCallback(onFrame);
+    }
+
+    video.addEventListener("loadedmetadata", () => {
+      video
+        .play()
+        .then(() => {
+          video.requestVideoFrameCallback(onFrame);
+          setTimeout(() => {
+            stopped = true;
+            video.pause();
+            video.srcObject = null;
+            resolve(frames);
+          }, durationMs);
+        })
+        .catch(reject);
+    });
+    video.addEventListener("error", reject);
+  });
+}
+
+function pickBoomerangMimeType() {
+  const candidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+  return candidates.find((type) => MediaRecorder.isTypeSupported?.(type)) || "video/webm";
+}
+
+function encodeBoomerang(frames, fps) {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = frames[0].width;
+    canvas.height = frames[0].height;
+    const ctx = canvas.getContext("2d");
+
+    const canvasStream = canvas.captureStream(fps);
+    const recorder = new MediaRecorder(canvasStream, { mimeType: pickBoomerangMimeType() });
+    const chunks = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data.size) chunks.push(e.data);
+    };
+    recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType }));
+    recorder.onerror = reject;
+
+    // Adelante + reversa, sin repetir los extremos (si no, el loop queda
+    // "pisado" — se nota una pausa en cada punta).
+    const sequence = [...frames, ...frames.slice(0, -1).reverse()];
+
+    recorder.start();
+    let i = 0;
+    const frameDuration = 1000 / fps;
+    const timer = setInterval(() => {
+      if (i >= sequence.length) {
+        clearInterval(timer);
+        recorder.stop();
+        return;
+      }
+      ctx.putImageData(sequence[i], 0, 0);
+      i += 1;
+    }, frameDuration);
+  });
+}
+
+async function buildBoomerang(stream) {
+  if (!stream || typeof MediaRecorder === "undefined") return null;
+  try {
+    const frames = await captureFramesFromStream(stream, BOOMERANG_DURATION_MS, BOOMERANG_FPS);
+    if (frames.length < 2) return null;
+    return await encodeBoomerang(frames, BOOMERANG_FPS);
+  } catch (err) {
+    console.warn("[FrameIt] No se pudo armar el boomerang:", err);
+    return null;
+  }
+}
+
+// Dispara en background (no bloquea la navegación a Preview). Si ya
+// estábamos en Preview cuando termina, habilita el toggle "Live".
+function startBoomerangCapture() {
+  if (session.boomerangUrl) URL.revokeObjectURL(session.boomerangUrl);
+  session.boomerangUrl = null;
+  updatePreviewLiveToggle();
+
+  buildBoomerang(cameraStream).then((blob) => {
+    if (!blob) return;
+    session.boomerangUrl = URL.createObjectURL(blob);
+    updatePreviewLiveToggle();
+  });
+}
+
 // "single" saca 1 foto; "strip" saca 3, una toma por vez con su propia
 // cuenta regresiva. session.capturedPhotos se reinicia en cada entrada a
 // "capturing" (incluido el reintento desde Preview: se repiten las 3 tomas).
@@ -317,6 +438,7 @@ function takeNextShot() {
       el.textContent = "¡Buenísimo!";
       setTimeout(takeNextShot, SHOT_PAUSE_MS);
     } else {
+      startBoomerangCapture();
       showScreen("preview");
     }
   });
@@ -363,12 +485,51 @@ function renderPrintStrip() {
   fillPrintStripPhotos(document.getElementById("printStripPhotos"));
   // En modo "single" la tarjeta tiene 1 sola foto — se agranda para
   // aprovechar el espacio (la tarjeta chica está pensada para 3 celdas).
-  document.getElementById("printStrip").classList.toggle("print-strip--single", session.mode === "single");
+  const isSingle = session.mode === "single";
+  document.getElementById("printStrip").classList.toggle("print-strip--single", isSingle);
+  document.getElementById("boomerangPreview").classList.toggle("boomerang-preview--single", isSingle);
+
+  setPreviewView("photo"); // siempre arranca en la foto, nunca heredado de una visita anterior
+  updatePreviewLiveToggle();
+}
+
+// Foto (tira estática) vs Live (boomerang en loop) — mismo recuadro,
+// se togglean, nunca los dos a la vez.
+function setPreviewView(view) {
+  document.getElementById("printStrip").hidden = view === "live";
+  const boomerang = document.getElementById("boomerangPreview");
+  boomerang.hidden = view !== "live";
+
+  if (view === "live" && session.boomerangUrl) {
+    if (boomerang.src !== session.boomerangUrl) boomerang.src = session.boomerangUrl;
+    boomerang.play().catch(() => {});
+  } else {
+    boomerang.pause();
+  }
+
+  document.querySelectorAll("#previewViewTabs .picker-tab").forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.view === view);
+  });
+}
+
+// El boomerang se arma en background (startBoomerangCapture) — esto
+// muestra/oculta el toggle según si ya está listo.
+function updatePreviewLiveToggle() {
+  const hasBoomerang = !!session.boomerangUrl;
+  document.getElementById("previewViewTabs").hidden = !hasBoomerang;
+  if (!hasBoomerang) setPreviewView("photo");
+}
+
+function bindPreviewViewTabs() {
+  document.querySelectorAll("#previewViewTabs .picker-tab").forEach((tab) => {
+    tab.addEventListener("click", () => setPreviewView(tab.dataset.view));
+  });
 }
 
 function bindPreviewScreen() {
   document.getElementById("retryBtn").addEventListener("click", () => showScreen("capturing"));
   document.getElementById("confirmBtn").addEventListener("click", () => showScreen("background"));
+  bindPreviewViewTabs();
 }
 
 // Mismo criterio que en Preview: en modo "single" la tarjeta de 1 foto se
