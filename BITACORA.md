@@ -382,3 +382,42 @@ necesita que el navegador esté en modo "cross-origin isolated"
 
 **Todavía sin confirmar:** falta que el usuario pruebe de nuevo en el
 iPhone real para saber si el salto de velocidad fue suficiente.
+
+### Perf: conversión server-side (resolvió de raíz, probado localmente)
+Seguía lento incluso con multi-thread. El usuario propuso bajar el
+`.webm` crudo y que la gente lo suba a mano a Instagram — pero eso no
+arregla el problema real (Instagram tampoco abre `.webm` al subirlo
+manualmente, solo movería el error de "ahora" a "más tarde y más
+confuso"). La solución de raíz: convertir UNA sola vez, en el servidor,
+con `ffmpeg` nativo (sin el overhead de correr dentro de un navegador vía
+WebAssembly) — justo al subir el video desde la cabina, durante la espera
+que ya existe en "Preparando QR...".
+
+- `server.py`: si hay `ffmpeg` en el PATH (`shutil.which`), `/api/upload-video`
+  corre `convert_webm_to_mp4()` (subprocess, libx264 preset `veryfast`,
+  `crf 23`) y devuelve la URL del `.mp4` resultante. Sin `ffmpeg`
+  instalado, o si la conversión falla (`subprocess.CalledProcessError`),
+  cae al `.webm` crudo de siempre — nunca rompe el upload. Imprime un
+  aviso al arrancar si no encuentra `ffmpeg`.
+- `galeria.html`: si `&video=` ya apunta a un `.mp4` (`videoIsMp4`, regex
+  sobre la URL), compartir/descargar es directo — ffmpeg.wasm ni se toca,
+  ni se descargan sus ~25MB. Si sigue siendo `.webm` (servidor sin
+  `ffmpeg`), cae al flujo anterior (conversión en el celular) tal cual.
+- `api/upload-video.js` (Vercel) queda SIN tocar a propósito — Vercel no
+  tiene `ffmpeg` nativo disponible en sus funciones serverless sin
+  empaquetar un binario aparte (riesgo real de pasarse del límite de
+  tamaño del plan Hobby), y el usuario todavía no probó esto en la
+  Raspberry Pi real. Por ahora el deploy de Vercel sigue con la
+  conversión client-side (más lenta, pero funcional).
+
+**Validado localmente:** instalado `ffmpeg` con `brew` (ojo: en esta Mac
+tuvo que compilar Python desde cero como dependencia, tardó varios
+minutos — en la Pi con `apt install ffmpeg` debería bajar un binario
+precompilado, mucho más rápido). Probado con un webm sintético
+(`ffmpeg -f lavfi`) contra `/api/upload-video`: sube, convierte a h264
+720x1280 en el momento, `/galeria.html` lo sirve con
+`Content-Type: video/mp4` correcto.
+
+**Pendiente:** instalar `ffmpeg` en la Raspberry Pi real (`sudo apt
+install ffmpeg`) y confirmar el flujo completo ahí — todavía no probado
+fuera de esta Mac.
