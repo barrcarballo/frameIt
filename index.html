@@ -197,8 +197,8 @@
 
       <h1 class="preview-title">Preview</h1>
 
-      <!-- Toggle Foto/Live: arranca oculto, aparece cuando el boomerang
-           terminó de armarse en background (ver updatePreviewLiveToggle) -->
+      <!-- Toggle Foto/Live: arranca oculto, aparece cuando la Live Photo
+           terminó de grabarse en background (ver updatePreviewLiveToggle) -->
       <div class="preview-view-tabs" id="previewViewTabs" hidden>
         <button class="picker-tab is-active" type="button" data-view="photo">Foto</button>
         <button class="picker-tab" type="button" data-view="live">Live</button>
@@ -218,8 +218,8 @@
       </div>
 
       <!-- Mismo recuadro que .print-strip (tamaño/posición vía JS), pero
-           mostrando el boomerang en loop en vez de la tira estática. -->
-      <video class="boomerang-preview" id="boomerangPreview" loop muted playsinline hidden></video>
+           mostrando la Live Photo en loop en vez de la tira estática. -->
+      <video class="live-photo-preview" id="livePhotoPreview" loop muted playsinline hidden></video>
 
       <p class="preview-heading">¡Foto lista!</p>
       <p class="preview-question">¿Te gustó?</p>

@@ -22,7 +22,7 @@ let currentScreen = "welcome";
 let idleTimer = null;
 let idleDeadline = null; // timestamp (ms) en que el idle timer actual dispara
 let welcomeLoopTimer = null;
-let cameraStream = null; // MediaStream compartido, lo usa initCamera() y el boomerang
+let cameraStream = null; // MediaStream compartido, lo usa initCamera() y la Live Photo
 
 // Estado de la sesión de captura en curso (modo elegido, marco elegido, etc.)
 const session = {
@@ -30,7 +30,7 @@ const session = {
   frame: "assets/frames/frame-01.png",
   filter: "", // "" (sin filtro) | "bw" | "sepia" | "vintage" | "analog" — ver FILTERS
   background: "bg-01",
-  boomerangUrl: null, // object URL del último boomerang armado (ver buildBoomerang)
+  liveUrl: null, // object URL de la última Live Photo grabada (ver startLiveRecording)
 };
 
 function showScreen(name) {
@@ -108,7 +108,7 @@ async function initCamera() {
       video: { facingMode: "user" },
       audio: false,
     });
-    cameraStream = stream; // guardado global: lo necesita el boomerang (MediaRecorder)
+    cameraStream = stream; // guardado global: lo necesita la Live Photo (MediaRecorder)
     CAMERA_VIDEO_IDS.forEach((id) => {
       document.getElementById(id).srcObject = stream;
     });
@@ -293,122 +293,53 @@ async function capturePhoto() {
   return canvas.toDataURL("image/png");
 }
 
-// Boomerang: clip cortito adelante+reversa, armado una sola vez por sesión
-// (en la última toma, no una por foto). Captura frames en vivo del stream
-// (requestVideoFrameCallback, liviano — no graba/decodifica un archivo
-// intermedio) y los recodifica forward+reverse con MediaRecorder sobre un
-// canvas. CPU-intensivo: probado en desktop, falta validar en la Pi 3.
-const BOOMERANG_DURATION_MS = 1500;
-const BOOMERANG_FPS = 12;
+// Live Photo (como en iPhone): un clip natural de ~1s antes + ~1s después
+// del flash, SIN rebote/reversa como un boomerang — se graba derecho con
+// MediaRecorder directo sobre el stream de la cámara. Mucho más liviano
+// que procesar frame a frame (nada de canvas ni recodificar), buena señal
+// para la Pi 3 también.
+const LIVE_PHOTO_AFTER_MS = 1000;
 
-function captureFramesFromStream(stream, durationMs, fps) {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement("video");
-    video.srcObject = stream;
-    video.muted = true;
-    video.playsInline = true;
+let liveRecorder = null;
+let liveChunks = [];
 
-    const frames = [];
-    const intervalMs = 1000 / fps;
-    let lastCapture = 0;
-    let stopped = false;
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-
-    function onFrame(now) {
-      if (stopped) return;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      if (frames.length === 0 || now - lastCapture >= intervalMs) {
-        ctx.drawImage(video, 0, 0);
-        frames.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-        lastCapture = now;
-      }
-      video.requestVideoFrameCallback(onFrame);
-    }
-
-    video.addEventListener("loadedmetadata", () => {
-      video
-        .play()
-        .then(() => {
-          video.requestVideoFrameCallback(onFrame);
-          setTimeout(() => {
-            stopped = true;
-            video.pause();
-            video.srcObject = null;
-            resolve(frames);
-          }, durationMs);
-        })
-        .catch(reject);
-    });
-    video.addEventListener("error", reject);
-  });
-}
-
-function pickBoomerangMimeType() {
+function pickLiveMimeType() {
   const candidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
   return candidates.find((type) => MediaRecorder.isTypeSupported?.(type)) || "video/webm";
 }
 
-function encodeBoomerang(frames, fps) {
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement("canvas");
-    canvas.width = frames[0].width;
-    canvas.height = frames[0].height;
-    const ctx = canvas.getContext("2d");
-
-    const canvasStream = canvas.captureStream(fps);
-    const recorder = new MediaRecorder(canvasStream, { mimeType: pickBoomerangMimeType() });
-    const chunks = [];
-    recorder.ondataavailable = (e) => {
-      if (e.data.size) chunks.push(e.data);
-    };
-    recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType }));
-    recorder.onerror = reject;
-
-    // Adelante + reversa, sin repetir los extremos (si no, el loop queda
-    // "pisado" — se nota una pausa en cada punta).
-    const sequence = [...frames, ...frames.slice(0, -1).reverse()];
-
-    recorder.start();
-    let i = 0;
-    const frameDuration = 1000 / fps;
-    const timer = setInterval(() => {
-      if (i >= sequence.length) {
-        clearInterval(timer);
-        recorder.stop();
-        return;
-      }
-      ctx.putImageData(sequence[i], 0, 0);
-      i += 1;
-    }, frameDuration);
-  });
-}
-
-async function buildBoomerang(stream) {
-  if (!stream || typeof MediaRecorder === "undefined") return null;
+// Se llama ~1s ANTES del flash (ver el onTick de startCountdown en la
+// última toma), así el clip arranca un poco antes del momento de la foto.
+function startLiveRecording() {
+  if (!cameraStream || typeof MediaRecorder === "undefined") return;
+  if (session.liveUrl) {
+    URL.revokeObjectURL(session.liveUrl);
+    session.liveUrl = null;
+  }
+  liveChunks = [];
   try {
-    const frames = await captureFramesFromStream(stream, BOOMERANG_DURATION_MS, BOOMERANG_FPS);
-    if (frames.length < 2) return null;
-    return await encodeBoomerang(frames, BOOMERANG_FPS);
+    liveRecorder = new MediaRecorder(cameraStream, { mimeType: pickLiveMimeType() });
+    liveRecorder.ondataavailable = (e) => {
+      if (e.data.size) liveChunks.push(e.data);
+    };
+    liveRecorder.start();
   } catch (err) {
-    console.warn("[FrameIt] No se pudo armar el boomerang:", err);
-    return null;
+    console.warn("[FrameIt] No se pudo empezar a grabar la Live Photo:", err);
+    liveRecorder = null;
   }
 }
 
-// Dispara en background (no bloquea la navegación a Preview). Si ya
-// estábamos en Preview cuando termina, habilita el toggle "Live".
-function startBoomerangCapture() {
-  if (session.boomerangUrl) URL.revokeObjectURL(session.boomerangUrl);
-  session.boomerangUrl = null;
-  updatePreviewLiveToggle();
-
-  buildBoomerang(cameraStream).then((blob) => {
-    if (!blob) return;
-    session.boomerangUrl = URL.createObjectURL(blob);
+// Se llama ~1s DESPUÉS del flash — cierra el clip y lo deja listo para
+// Preview (updatePreviewLiveToggle habilita el toggle "Live" cuando esto
+// termina, puede ser un instante después de llegar a la pantalla).
+function stopLiveRecording() {
+  if (!liveRecorder || liveRecorder.state === "inactive") return;
+  liveRecorder.onstop = () => {
+    const blob = new Blob(liveChunks, { type: liveRecorder.mimeType });
+    session.liveUrl = URL.createObjectURL(blob);
     updatePreviewLiveToggle();
-  });
+  };
+  liveRecorder.stop();
 }
 
 // "single" saca 1 foto; "strip" saca 3, una toma por vez con su propia
@@ -424,27 +355,35 @@ function startShotSequence() {
 function takeNextShot() {
   const totalShots = session.mode === "strip" ? 3 : 1;
   const shotNumber = session.capturedPhotos.length + 1;
+  const isLastShot = shotNumber === totalShots;
 
   const counterEl = document.getElementById("shotCounter");
   counterEl.hidden = totalShots === 1;
   counterEl.textContent = `Foto ${shotNumber} de ${totalShots}`;
 
-  startCountdown(async () => {
-    const photo = await capturePhoto();
-    if (photo) session.capturedPhotos.push(photo);
+  startCountdown(
+    async () => {
+      const photo = await capturePhoto();
+      if (photo) session.capturedPhotos.push(photo);
 
-    if (session.capturedPhotos.length < totalShots) {
-      const el = document.getElementById("countdownText");
-      el.textContent = "¡Buenísimo!";
-      setTimeout(takeNextShot, SHOT_PAUSE_MS);
-    } else {
-      startBoomerangCapture();
-      showScreen("preview");
+      if (session.capturedPhotos.length < totalShots) {
+        const el = document.getElementById("countdownText");
+        el.textContent = "¡Buenísimo!";
+        setTimeout(takeNextShot, SHOT_PAUSE_MS);
+      } else {
+        showScreen("preview");
+        setTimeout(stopLiveRecording, LIVE_PHOTO_AFTER_MS); // ~1s más de clip después del flash
+      }
+    },
+    // Arranca a grabar 1s antes del flash de la ÚLTIMA toma — así la Live
+    // Photo tiene un poco de "antes", no solo "después".
+    (n) => {
+      if (isLastShot && n === 1) startLiveRecording();
     }
-  });
+  );
 }
 
-function startCountdown(onDone) {
+function startCountdown(onDone, onTick) {
   clearInterval(countdownTimer);
 
   const el = document.getElementById("countdownText");
@@ -455,6 +394,7 @@ function startCountdown(onDone) {
     n -= 1;
     if (n > 0) {
       el.textContent = n;
+      onTick?.(n);
       return;
     }
     clearInterval(countdownTimer);
@@ -487,24 +427,24 @@ function renderPrintStrip() {
   // aprovechar el espacio (la tarjeta chica está pensada para 3 celdas).
   const isSingle = session.mode === "single";
   document.getElementById("printStrip").classList.toggle("print-strip--single", isSingle);
-  document.getElementById("boomerangPreview").classList.toggle("boomerang-preview--single", isSingle);
+  document.getElementById("livePhotoPreview").classList.toggle("live-photo-preview--single", isSingle);
 
   setPreviewView("photo"); // siempre arranca en la foto, nunca heredado de una visita anterior
   updatePreviewLiveToggle();
 }
 
-// Foto (tira estática) vs Live (boomerang en loop) — mismo recuadro,
-// se togglean, nunca los dos a la vez.
+// Foto (tira estática) vs Live (clip en loop, como una Live Photo) — mismo
+// recuadro, se togglean, nunca los dos a la vez.
 function setPreviewView(view) {
   document.getElementById("printStrip").hidden = view === "live";
-  const boomerang = document.getElementById("boomerangPreview");
-  boomerang.hidden = view !== "live";
+  const liveVideo = document.getElementById("livePhotoPreview");
+  liveVideo.hidden = view !== "live";
 
-  if (view === "live" && session.boomerangUrl) {
-    if (boomerang.src !== session.boomerangUrl) boomerang.src = session.boomerangUrl;
-    boomerang.play().catch(() => {});
+  if (view === "live" && session.liveUrl) {
+    if (liveVideo.src !== session.liveUrl) liveVideo.src = session.liveUrl;
+    liveVideo.play().catch(() => {});
   } else {
-    boomerang.pause();
+    liveVideo.pause();
   }
 
   document.querySelectorAll("#previewViewTabs .picker-tab").forEach((tab) => {
@@ -512,12 +452,12 @@ function setPreviewView(view) {
   });
 }
 
-// El boomerang se arma en background (startBoomerangCapture) — esto
-// muestra/oculta el toggle según si ya está listo.
+// La Live Photo se graba en background (startLiveRecording/stopLiveRecording)
+// — esto muestra/oculta el toggle según si ya está lista.
 function updatePreviewLiveToggle() {
-  const hasBoomerang = !!session.boomerangUrl;
-  document.getElementById("previewViewTabs").hidden = !hasBoomerang;
-  if (!hasBoomerang) setPreviewView("photo");
+  const hasLive = !!session.liveUrl;
+  document.getElementById("previewViewTabs").hidden = !hasLive;
+  if (!hasLive) setPreviewView("photo");
 }
 
 function bindPreviewViewTabs() {

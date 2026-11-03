@@ -856,9 +856,9 @@ video.frame-thumb-photo {
 }
 
 /* Mismo recuadro que .print-strip (y su variante --single), pero mostrando
-   el boomerang en loop. Proporción casi cuadrada (106:97), igual que el
+   la Live Photo en loop. Proporción casi cuadrada (106:97), igual que el
    resto de las fotos de la app. */
-.boomerang-preview {
+.live-photo-preview {
   position: absolute;
   left: 213px;
   top: 136px;
@@ -871,11 +871,11 @@ video.frame-thumb-photo {
   transform: scaleX(-1); /* espejado, igual que el resto de los preview en vivo */
 }
 
-.boomerang-preview[hidden] {
+.live-photo-preview[hidden] {
   display: none;
 }
 
-.boomerang-preview--single {
+.live-photo-preview--single {
   left: 130px;
   top: 167px;
   width: 350px;
