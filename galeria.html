@@ -23,6 +23,7 @@
     box-sizing:border-box;
   }
   button.action { background:#3d0303; color:#ffdede; }
+  button.action:disabled { opacity:0.6; cursor:default; }
   a.download { background:#950606; color:#ffdede; }
   p.hint { font-size:14px; color:#3d0303; text-align:center; max-width:320px; margin:0; }
 </style>
@@ -40,7 +41,16 @@
   <a class="download" id="downloadLink">Descargar foto</a>
   <p class="hint" id="hint"></p>
 
-  <script>
+  <script type="module">
+    // Instagram (y la mayoría de las apps) no abren el .webm que graba
+    // MediaRecorder en el navegador de la cabina — piden MP4/H.264. En vez
+    // de tocar el backend o la cabina, la conversión se hace acá, en el
+    // celular, justo antes de compartir: ffmpeg compilado a WebAssembly,
+    // cargado solo cuando hace falta (nunca para la foto, ni para
+    // simplemente ver/descargar el Live).
+    import { FFmpeg } from "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js";
+    import { fetchFile, toBlobURL } from "https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js";
+
     const params = new URLSearchParams(location.search);
     const photoUrl = params.get("photo");
     const videoUrl = params.get("video");
@@ -89,17 +99,58 @@
       render();
     }
 
+    // Instancia única de ffmpeg, se carga (~25MB) la primera vez que hace
+    // falta convertir un Live y se reusa si se comparte de nuevo.
+    let ffmpegPromise = null;
+
+    function getFFmpeg() {
+      if (!ffmpegPromise) {
+        ffmpegPromise = (async () => {
+          const ffmpeg = new FFmpeg();
+          const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+          await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+          });
+          return ffmpeg;
+        })();
+      }
+      return ffmpegPromise;
+    }
+
+    async function webmToMp4(blob) {
+      const ffmpeg = await getFFmpeg();
+      await ffmpeg.writeFile("in.webm", await fetchFile(blob));
+      await ffmpeg.exec(["-i", "in.webm", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "out.mp4"]);
+      const data = await ffmpeg.readFile("out.mp4");
+      return new Blob([data.buffer], { type: "video/mp4" });
+    }
+
     async function shareCurrent() {
       const url = view === "live" ? videoUrl : photoUrl;
       if (!url) return;
 
+      shareBtn.disabled = true;
+      hint.textContent = "";
+
       try {
         const res = await fetch(url);
         const blob = await res.blob();
-        const file =
-          view === "live"
-            ? new File([blob], "frameit-live.webm", { type: "video/webm" })
-            : new File([blob], "frameit.png", { type: "image/png" });
+
+        let file;
+        if (view === "live") {
+          hint.textContent = "Convirtiendo video para compartir...";
+          try {
+            const mp4Blob = await webmToMp4(blob);
+            file = new File([mp4Blob], "frameit-live.mp4", { type: "video/mp4" });
+          } catch (err) {
+            console.warn("[FrameIt] No se pudo convertir el Live a MP4, se comparte en formato original:", err);
+            file = new File([blob], "frameit-live.webm", { type: "video/webm" });
+          }
+          hint.textContent = "";
+        } else {
+          file = new File([blob], "frameit.png", { type: "image/png" });
+        }
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -112,6 +163,8 @@
       } catch (err) {
         if (err.name === "AbortError") return; // el usuario canceló, no es un error
         console.warn("[FrameIt] No se pudo compartir:", err);
+      } finally {
+        shareBtn.disabled = false;
       }
       hint.textContent =
         "Tu navegador no soporta compartir directo: mantené presionado para guardarlo y compartilo desde tu galería.";
