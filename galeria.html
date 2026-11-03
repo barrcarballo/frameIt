@@ -73,6 +73,9 @@
         btn.classList.toggle("is-active", btn.dataset.view === view);
       });
 
+      // El href queda como fallback puro (por si el click interceptado más
+      // abajo no llegara a correr) — para "live" apunta al webm crudo, que
+      // es el único archivo que existe sin pasar por la conversión a MP4.
       downloadLink.href = view === "live" ? videoUrl : photoUrl;
       downloadLink.download = view === "live" ? "frameit-live.webm" : "frameit.png";
       downloadLink.textContent = view === "live" ? "Descargar Live" : "Descargar foto";
@@ -126,6 +129,34 @@
       return new Blob([data.buffer], { type: "video/mp4" });
     }
 
+    // El Live convertido a MP4 se cachea (una sola conversión por visita a
+    // la página aunque se comparta Y se descargue, o se comparta dos veces).
+    let liveMp4Promise = null;
+
+    function getLiveMp4Blob() {
+      if (!liveMp4Promise) {
+        liveMp4Promise = fetch(videoUrl)
+          .then((res) => res.blob())
+          .then(webmToMp4)
+          .catch((err) => {
+            liveMp4Promise = null; // no cachear un fallo — puede reintentarse
+            throw err;
+          });
+      }
+      return liveMp4Promise;
+    }
+
+    function triggerBlobDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }
+
     async function shareCurrent() {
       const url = view === "live" ? videoUrl : photoUrl;
       if (!url) return;
@@ -134,22 +165,20 @@
       hint.textContent = "";
 
       try {
-        const res = await fetch(url);
-        const blob = await res.blob();
-
         let file;
         if (view === "live") {
           hint.textContent = "Convirtiendo video para compartir...";
           try {
-            const mp4Blob = await webmToMp4(blob);
-            file = new File([mp4Blob], "frameit-live.mp4", { type: "video/mp4" });
+            file = new File([await getLiveMp4Blob()], "frameit-live.mp4", { type: "video/mp4" });
           } catch (err) {
             console.warn("[FrameIt] No se pudo convertir el Live a MP4, se comparte en formato original:", err);
-            file = new File([blob], "frameit-live.webm", { type: "video/webm" });
+            const res = await fetch(videoUrl);
+            file = new File([await res.blob()], "frameit-live.webm", { type: "video/webm" });
           }
           hint.textContent = "";
         } else {
-          file = new File([blob], "frameit.png", { type: "image/png" });
+          const res = await fetch(url);
+          file = new File([await res.blob()], "frameit.png", { type: "image/png" });
         }
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -170,7 +199,31 @@
         "Tu navegador no soporta compartir directo: mantené presionado para guardarlo y compartilo desde tu galería.";
     }
 
+    // La descarga de la foto navega directo (href normal, instantáneo). La
+    // del Live se intercepta para bajar siempre el MP4 convertido, no el
+    // webm crudo — mismo criterio que compartir.
+    async function downloadCurrent(event) {
+      if (view !== "live") return; // deja que el <a href> normal haga la descarga
+
+      event.preventDefault();
+      downloadLink.setAttribute("aria-disabled", "true");
+      hint.textContent = "Convirtiendo video para descargar...";
+
+      try {
+        const mp4Blob = await getLiveMp4Blob();
+        triggerBlobDownload(mp4Blob, "frameit-live.mp4");
+      } catch (err) {
+        console.warn("[FrameIt] No se pudo convertir el Live a MP4, se descarga en formato original:", err);
+        const res = await fetch(videoUrl);
+        triggerBlobDownload(await res.blob(), "frameit-live.webm");
+      } finally {
+        downloadLink.removeAttribute("aria-disabled");
+        hint.textContent = "";
+      }
+    }
+
     shareBtn.addEventListener("click", shareCurrent);
+    downloadLink.addEventListener("click", downloadCurrent);
   </script>
 </body>
 </html>
