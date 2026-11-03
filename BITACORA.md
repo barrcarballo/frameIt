@@ -212,3 +212,28 @@ cámara, y `ctx.filter` en el canvas al componer la foto final — el canvas
 2D acepta la misma sintaxis que el CSS `filter`, así que es una sola
 definición por filtro sin duplicar lógica. El filter se aplica solo a la
 foto, no al marco (se resetea antes de dibujarlo encima).
+
+### Boomerang (Live) en Preview
+Nueva pestaña "Foto"/"Live" en Preview — el boomerang es real (adelante +
+reversa en loop), no un video simple. Se graba en background al terminar
+la última toma (no bloquea la navegación a Preview):
+1. `captureFramesFromStream()` — captura frames en vivo del `MediaStream`
+   compartido vía `requestVideoFrameCallback` (liviano, no graba/decodifica
+   un archivo intermedio), ~1.5s a 12fps.
+2. `encodeBoomerang()` — dibuja esos frames (adelante, después la misma
+   secuencia invertida, sin repetir los extremos) en un canvas y lo
+   recodifica con `MediaRecorder` sobre `canvas.captureStream()`, produce
+   un `Blob` webm real.
+3. El toggle "Foto"/"Live" en Preview aparece recién cuando el boomerang
+   terminó de armarse (puede tardar un poco más que la navegación misma).
+
+**Pendiente/riesgo real:** esto es CPU-intensivo (frame-by-frame, sin
+aceleración de hardware). Anda bien en desktop (probado en Mac), pero
+**no se validó en la Raspberry Pi 3** — el target real del proyecto. Hay
+que probarlo ahí antes de darlo por cerrado; si va muy lento, bajar
+`BOOMERANG_FPS`/`BOOMERANG_DURATION_MS` en app.js o reconsiderar el enfoque.
+
+**Alcance de esta vuelta:** solo grabación + revisión en Preview. Conectar
+el boomerang al QR/Instagram (hoy `/api/upload-photo` y `/galeria` solo
+manejan la foto estática) queda pendiente — toca el servidor de subida en
+los dos lados (local y Vercel) y las páginas de galería.
