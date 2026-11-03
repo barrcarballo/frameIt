@@ -304,3 +304,29 @@ opciones antes de mostrar nada: ahora `uploadAndRenderQr()` deja un
 indicador "Preparando QR..." en el lugar del QR mientras se componen y
 suben la foto y la Live Photo, y recién renderiza un único QR (ya con
 `&video=` si salió bien) cuando terminan las dos.
+
+### Fix: Instagram no abría el Live (necesita MP4, no webm)
+Al probarlo de verdad, compartir el Live a Instagram tiraba "Content
+currently unavailable — Open this on Instagram to share it." Causa real:
+`MediaRecorder` en el navegador de la cabina (Chromium) solo graba
+contenedores `webm` — no sabe codificar a MP4/H.264 de forma confiable
+multiplataforma — e Instagram rechaza `webm` desde su share sheet aunque
+el Web Share API del sistema sí deje elegirla como destino (el fallo pasa
+adentro de Instagram, no hay manera de detectarlo desde JS).
+
+Se descartó tocar la cabina o el backend para esto (Vercel no tiene
+`ffmpeg` disponible por default, y la Pi ya es el cuello de botella de
+performance del proyecto). En cambio, `galeria.html` convierte el clip a
+MP4 justo antes de compartir, corriendo **en el celular de quien
+comparte**: `ffmpeg` compilado a WebAssembly (`@ffmpeg/ffmpeg` +
+`@ffmpeg/core`, vía CDN, ~25MB), cargado perezosamente solo la primera vez
+que se toca "Compartir" en la vista Live (nunca para la foto, ni solo al
+ver/descargar el Live). Mientras convierte muestra "Convirtiendo video
+para compartir..."; si la conversión falla (navegador viejo, sin memoria),
+cae de nuevo al `webm` original en vez de romper el flujo.
+
+**Pendiente/no resuelto todavía:** la descarga directa del Live
+(`downloadLink`) sigue siendo `webm` — no se tocó porque el pedido
+puntual era arreglar el share a Instagram, pero el mismo problema de
+formato podría afectar a quien descarga y comparte a mano desde su
+galería.
