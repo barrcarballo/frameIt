@@ -421,30 +421,60 @@ function fillPrintStripPhotos(container) {
   });
 }
 
+// Mismo marco/mat/logo que fillPrintStripPhotos, pero cada celda es un
+// <video> en loop en vez de la imagen fija — y como el clip grabado no
+// tiene el marco ni el filtro "horneados" (eso solo pasa al componer la
+// foto fija en capturePhoto), se los superpone acá en vivo: el marco como
+// <img> encima, el filtro como CSS filter sobre el propio <video>.
+function fillPrintStripLive(container) {
+  if (!session.liveUrl) return;
+
+  const cellCount = session.mode === "strip" ? 3 : 1;
+  const filterCss = FILTERS[session.filter] ?? "none";
+
+  container.innerHTML = "";
+  for (let i = 0; i < cellCount; i += 1) {
+    const cell = document.createElement("div");
+    cell.className = "print-strip__cell";
+
+    const video = document.createElement("video");
+    video.src = session.liveUrl;
+    video.autoplay = true;
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.style.filter = filterCss;
+    cell.appendChild(video);
+
+    if (session.frame) {
+      const frameImg = document.createElement("img");
+      frameImg.className = "print-strip__cell-frame";
+      frameImg.src = squareFramePath(session.frame);
+      frameImg.alt = "";
+      cell.appendChild(frameImg);
+    }
+
+    container.appendChild(cell);
+  }
+}
+
 function renderPrintStrip() {
-  fillPrintStripPhotos(document.getElementById("printStripPhotos"));
   // En modo "single" la tarjeta tiene 1 sola foto — se agranda para
   // aprovechar el espacio (la tarjeta chica está pensada para 3 celdas).
-  const isSingle = session.mode === "single";
-  document.getElementById("printStrip").classList.toggle("print-strip--single", isSingle);
-  document.getElementById("livePhotoPreview").classList.toggle("live-photo-preview--single", isSingle);
+  document.getElementById("printStrip").classList.toggle("print-strip--single", session.mode === "single");
 
-  setPreviewView("photo"); // siempre arranca en la foto, nunca heredado de una visita anterior
+  setPreviewView("photo"); // siempre arranca en la foto, nunca heredado de una visita anterior (esto ya llena las celdas)
   updatePreviewLiveToggle();
 }
 
 // Foto (tira estática) vs Live (clip en loop, como una Live Photo) — mismo
 // recuadro, se togglean, nunca los dos a la vez.
 function setPreviewView(view) {
-  document.getElementById("printStrip").hidden = view === "live";
-  const liveVideo = document.getElementById("livePhotoPreview");
-  liveVideo.hidden = view !== "live";
-
+  const container = document.getElementById("printStripPhotos");
   if (view === "live" && session.liveUrl) {
-    if (liveVideo.src !== session.liveUrl) liveVideo.src = session.liveUrl;
-    liveVideo.play().catch(() => {});
+    fillPrintStripLive(container);
   } else {
-    liveVideo.pause();
+    fillPrintStripPhotos(container);
   }
 
   document.querySelectorAll("#previewViewTabs .picker-tab").forEach((tab) => {

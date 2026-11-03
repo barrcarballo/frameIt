@@ -810,6 +810,27 @@ video.frame-thumb-photo {
   display: block;
 }
 
+/* Vista Live: la celda reemplaza la <img> fija por este <video> en loop,
+   mismo recorte/espejado que el resto de la cámara en vivo de la app. */
+.print-strip__cell video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scaleX(-1);
+}
+
+/* Marco cuadrado superpuesto sobre la celda (foto o video); sin crop
+   para no estirar/recortar el borde decorativo, igual que el resto. */
+.print-strip__cell-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+
 .print-strip__footer {
   display: flex;
   justify-content: center;
@@ -853,33 +874,6 @@ video.frame-thumb-photo {
 
 .preview-view-tabs .picker-tab {
   font-size: 15px;
-}
-
-/* Mismo recuadro que .print-strip (y su variante --single), pero mostrando
-   la Live Photo en loop. Proporción casi cuadrada (106:97), igual que el
-   resto de las fotos de la app. */
-.live-photo-preview {
-  position: absolute;
-  left: 213px;
-  top: 136px;
-  width: 141px;
-  height: 129px; /* 141 * 97/106 */
-  object-fit: cover;
-  border-radius: 10px;
-  background: #000;
-  box-shadow: 0 8px 20px rgba(61, 3, 3, 0.25);
-  transform: scaleX(-1); /* espejado, igual que el resto de los preview en vivo */
-}
-
-.live-photo-preview[hidden] {
-  display: none;
-}
-
-.live-photo-preview--single {
-  left: 130px;
-  top: 167px;
-  width: 350px;
-  height: 320px; /* 350 * 97/106 */
 }
 
 /* =========================================================
