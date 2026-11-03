@@ -353,11 +353,32 @@ preset de codificación. Dos cambios:
   "Convirtiendo video..." durante la codificación en sí — antes decía lo
   mismo todo el tiempo y parecía colgado.
 
-**Palanca más grande, no aplicada todavía:** el build de ffmpeg.wasm que
-se usa es single-threaded. Existe un build multi-threaded
-(`@ffmpeg/core-mt`) bastante más rápido (varios núcleos en paralelo), pero
-requiere headers `Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy`
-en el servidor para habilitar `SharedArrayBuffer` — con el riesgo de que,
-si algún recurso cross-origin no coopera, la página entera deje de cargar.
-No se tocó todavía porque no se puede validar sin probarlo en un
-dispositivo real.
+**Palanca más grande, aplicada después:** ver sección siguiente.
+
+### Perf: ffmpeg.wasm multi-thread (probado de nuevo en iPhone 14 Pro Max)
+Con resolución/fps/preset ya bajados, el usuario confirmó que seguía
+sintiéndose lento. Se activó el build multi-thread de ffmpeg.wasm
+(`@ffmpeg/core-mt`, varios núcleos en paralelo en vez de uno solo), que
+necesita que el navegador esté en modo "cross-origin isolated"
+(`self.crossOriginIsolated === true`) para poder usar `SharedArrayBuffer`.
+
+- `server.py` y `vercel.json` (nuevo) mandan
+  `Cross-Origin-Opener-Policy: same-origin` +
+  `Cross-Origin-Embedder-Policy: credentialless`, pero **solo en
+  `/galeria.html`** — el resto de la app (incluida la cabina) no los
+  necesita y no los recibe. En `server.py` esto va en un `end_headers()`
+  sobreescrito que chequea el path.
+- Se usó `credentialless` en vez de `require-corp` a propósito: la página
+  carga `<img>`/`<video>` apuntando a Vercel Blob (cross-origin) vía `src`
+  normal (no `fetch`), y con `require-corp` esas cargas se habrían roto a
+  menos que Vercel Blob mande `Cross-Origin-Resource-Policy` (no hay
+  control sobre eso). `credentialless` permite esas cargas igual (solo les
+  saca credenciales/cookies, que acá no hacen falta).
+- `galeria.html` chequea `self.crossOriginIsolated` antes de pedir el core
+  multi-thread; si es `false` (headers no llegaron, navegador viejo) o si
+  falla la carga del core `-mt`, cae sola al build single-thread de
+  siempre vía `try/catch` — nunca puede romper nada, en el peor caso queda
+  exactamente como estaba antes de este cambio.
+
+**Todavía sin confirmar:** falta que el usuario pruebe de nuevo en el
+iPhone real para saber si el salto de velocidad fue suficiente.
