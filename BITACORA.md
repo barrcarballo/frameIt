@@ -325,8 +325,11 @@ ver/descargar el Live). Mientras convierte muestra "Convirtiendo video
 para compartir..."; si la conversión falla (navegador viejo, sin memoria),
 cae de nuevo al `webm` original en vez de romper el flujo.
 
-**Pendiente/no resuelto todavía:** la descarga directa del Live
-(`downloadLink`) sigue siendo `webm` — no se tocó porque el pedido
-puntual era arreglar el share a Instagram, pero el mismo problema de
-formato podría afectar a quien descarga y comparte a mano desde su
-galería.
+**Ajuste:** el usuario pidió llevar la misma conversión a la descarga
+directa del Live (antes solo "Compartir" bajaba MP4, "Descargar Live"
+seguía bajando el `webm` crudo). Se intercepta el click de
+`downloadLink` solo para la vista Live (la de la foto sigue navegando
+directo por el `href`, sin JS de por medio) y reusa la misma conversión
+vía `getLiveMp4Blob()` — cacheada en una promesa, así si en la misma
+visita se comparte Y se descarga (o se comparte dos veces), no se
+convierte dos veces.
