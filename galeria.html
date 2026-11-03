@@ -124,24 +124,35 @@
     async function webmToMp4(blob) {
       const ffmpeg = await getFFmpeg();
       await ffmpeg.writeFile("in.webm", await fetchFile(blob));
-      await ffmpeg.exec(["-i", "in.webm", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "out.mp4"]);
+      // "ultrafast" + crf alto: prioriza velocidad de conversión por sobre
+      // compresión — en un celular, con ffmpeg corriendo en WebAssembly sin
+      // aceleración de hardware, el preset es la palanca más directa (el
+      // canvas que graba la Live Photo ya se achicó a propósito, ver
+      // EXPORT_VIDEO_W/H en app.js, que pesa bastante más en el tiempo).
+      await ffmpeg.exec(["-i", "in.webm", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "out.mp4"]);
       const data = await ffmpeg.readFile("out.mp4");
       return new Blob([data.buffer], { type: "video/mp4" });
     }
 
     // El Live convertido a MP4 se cachea (una sola conversión por visita a
     // la página aunque se comparta Y se descargue, o se comparta dos veces).
+    // onPhase(fase) avisa si lo que está tardando es bajar el conversor
+    // (~25MB, solo la primera vez) o la conversión en sí, para que el hint
+    // en pantalla no diga siempre lo mismo mientras la persona espera.
     let liveMp4Promise = null;
 
-    function getLiveMp4Blob() {
+    function getLiveMp4Blob(onPhase) {
       if (!liveMp4Promise) {
-        liveMp4Promise = fetch(videoUrl)
-          .then((res) => res.blob())
-          .then(webmToMp4)
-          .catch((err) => {
-            liveMp4Promise = null; // no cachear un fallo — puede reintentarse
-            throw err;
-          });
+        const needsLoad = !ffmpegPromise;
+        liveMp4Promise = (async () => {
+          if (needsLoad) onPhase?.("loading");
+          const webmBlob = await fetch(videoUrl).then((res) => res.blob());
+          onPhase?.("converting");
+          return webmToMp4(webmBlob);
+        })().catch((err) => {
+          liveMp4Promise = null; // no cachear un fallo — puede reintentarse
+          throw err;
+        });
       }
       return liveMp4Promise;
     }
@@ -167,9 +178,12 @@
       try {
         let file;
         if (view === "live") {
-          hint.textContent = "Convirtiendo video para compartir...";
           try {
-            file = new File([await getLiveMp4Blob()], "frameit-live.mp4", { type: "video/mp4" });
+            const mp4Blob = await getLiveMp4Blob((phase) => {
+              hint.textContent =
+                phase === "loading" ? "Cargando conversor de video (primera vez)..." : "Convirtiendo video para compartir...";
+            });
+            file = new File([mp4Blob], "frameit-live.mp4", { type: "video/mp4" });
           } catch (err) {
             console.warn("[FrameIt] No se pudo convertir el Live a MP4, se comparte en formato original:", err);
             const res = await fetch(videoUrl);
@@ -207,10 +221,12 @@
 
       event.preventDefault();
       downloadLink.setAttribute("aria-disabled", "true");
-      hint.textContent = "Convirtiendo video para descargar...";
 
       try {
-        const mp4Blob = await getLiveMp4Blob();
+        const mp4Blob = await getLiveMp4Blob((phase) => {
+          hint.textContent =
+            phase === "loading" ? "Cargando conversor de video (primera vez)..." : "Convirtiendo video para descargar...";
+        });
         triggerBlobDownload(mp4Blob, "frameit-live.mp4");
       } catch (err) {
         console.warn("[FrameIt] No se pudo convertir el Live a MP4, se descarga en formato original:", err);

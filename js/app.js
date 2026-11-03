@@ -655,12 +655,14 @@ function drawRotatedStrip(ctx, mediaEls, cx, cy, w, deg, { matColor = "#ffffff",
 }
 
 // Geometría del abanico + logo, compartida entre la foto final (imagen) y
-// la Live Photo final (video) — mismo layout exacto en los dos casos,
-// calculado una sola vez en función de cuántas celdas hay.
-function computeExportLayout(mediaCount) {
+// la Live Photo final (video) — mismo layout exacto en los dos casos (son
+// puras fracciones de canvasW/canvasH, por eso sirve aunque el video use un
+// canvas más chico que la foto — ver EXPORT_VIDEO_W/H), calculado una sola
+// vez en función de cuántas celdas hay.
+function computeExportLayout(mediaCount, canvasW = EXPORT_W, canvasH = EXPORT_H) {
   // En modo "single" la tira tiene 1 sola celda, no 3 — se agranda (logo y
   // separaciones escalan solos porque están definidos en función de stripW).
-  const stripW = EXPORT_W * (session.mode === "single" ? 0.62 : 0.48);
+  const stripW = canvasW * (session.mode === "single" ? 0.62 : 0.48);
   const logoW = stripW * 0.65;
   const logoH = logoW * (42 / 113); // aspect ratio real de isologo-light.svg
   const logoGap = stripW * 0.1;
@@ -681,13 +683,13 @@ function computeExportLayout(mediaCount) {
   const bbox16 = Math.abs(stripW * Math.sin(rad16)) + Math.abs(hProbe * Math.cos(rad16));
   const clusterH = Math.max(bbox13, bbox16);
 
-  const cx = EXPORT_W / 2;
+  const cx = canvasW / 2;
 
   // El logo ancla cerca del borde inferior (no centrado en todo el canvas)
   // pero respetando el margen que IG Stories tapa con su propia UI abajo
   // (~15% de la altura) — así nunca queda escondido detrás de esa barra.
-  const bottomSafeMargin = EXPORT_H * 0.05;
-  const logoY = EXPORT_H - bottomSafeMargin - logoH;
+  const bottomSafeMargin = canvasH * 0.05;
+  const logoY = canvasH - bottomSafeMargin - logoH;
   const clusterCy = logoY - logoGap - clusterH / 2;
 
   return { stripW, logoW, logoH, bottomPad, cx, clusterCy, logoY };
@@ -728,8 +730,17 @@ async function composeFinalImageBlob() {
 // duran ~2s, se loopean para completar los 10s reales del archivo
 // compartido). Pensado solo para compartir (QR → /galeria), no se reproduce
 // dentro de la app.
+//
+// Canvas más chico que el de la foto (EXPORT_W x EXPORT_H) y menos fps a
+// propósito: /galeria convierte este webm a MP4 con ffmpeg.wasm en el
+// celular de quien comparte (ver webmToMp4), y ese paso es MUY sensible a
+// la cantidad de píxeles por frame — en un iPhone 14 Pro Max, 1080x1920 a
+// 24fps tardaba demasiado. Mantiene el mismo 9:16 que la foto, solo con
+// menos resolución (de sobra para compartir a Instagram, no para imprimir).
 const EXPORT_VIDEO_MS = 10000;
-const EXPORT_FPS = 24;
+const EXPORT_VIDEO_W = 720;
+const EXPORT_VIDEO_H = 1280;
+const EXPORT_VIDEO_FPS = 20;
 
 async function composeFinalVideoBlob() {
   if (!session.liveUrls.length || session.liveUrls.length !== session.capturedPhotos.length) return null;
@@ -759,16 +770,16 @@ async function composeFinalVideoBlob() {
   );
 
   const canvas = document.createElement("canvas");
-  canvas.width = EXPORT_W;
-  canvas.height = EXPORT_H;
+  canvas.width = EXPORT_VIDEO_W;
+  canvas.height = EXPORT_VIDEO_H;
   const ctx = canvas.getContext("2d");
 
-  const layout = computeExportLayout(videos.length);
+  const layout = computeExportLayout(videos.length, EXPORT_VIDEO_W, EXPORT_VIDEO_H);
   const filterCss = FILTERS[session.filter] ?? "none";
 
   let recorder;
   try {
-    recorder = new MediaRecorder(canvas.captureStream(EXPORT_FPS), { mimeType: pickLiveMimeType() });
+    recorder = new MediaRecorder(canvas.captureStream(EXPORT_VIDEO_FPS), { mimeType: pickLiveMimeType() });
   } catch (err) {
     console.warn("[FrameIt] No se pudo armar el video final de la Live Photo:", err);
     return null;
@@ -782,7 +793,7 @@ async function composeFinalVideoBlob() {
   return new Promise((resolve) => {
     let rafId;
     const draw = () => {
-      drawCoverCrop(ctx, bgImg, bgImg.naturalWidth || bgImg.width, bgImg.naturalHeight || bgImg.height, EXPORT_W, EXPORT_H);
+      drawCoverCrop(ctx, bgImg, bgImg.naturalWidth || bgImg.width, bgImg.naturalHeight || bgImg.height, EXPORT_VIDEO_W, EXPORT_VIDEO_H);
       drawRotatedStrip(ctx, videos, layout.cx, layout.clusterCy, layout.stripW, 13.49, {
         matColor: "#3d0303",
         darken: true,
@@ -796,7 +807,7 @@ async function composeFinalVideoBlob() {
         filterCss,
         frameImg,
       });
-      ctx.drawImage(logoImg, (EXPORT_W - layout.logoW) / 2, layout.logoY, layout.logoW, layout.logoH);
+      ctx.drawImage(logoImg, (EXPORT_VIDEO_W - layout.logoW) / 2, layout.logoY, layout.logoW, layout.logoH);
       rafId = requestAnimationFrame(draw);
     };
 
