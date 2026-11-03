@@ -30,7 +30,7 @@ const session = {
   frame: "assets/frames/frame-01.png",
   filter: "", // "" (sin filtro) | "bw" | "sepia" | "vintage" | "analog" — ver FILTERS
   background: "bg-01",
-  liveUrl: null, // object URL de la última Live Photo grabada (ver startLiveRecording)
+  liveUrls: [], // object URLs de las Live Photos, una por toma y en el mismo orden que capturedPhotos
 };
 
 function showScreen(name) {
@@ -308,14 +308,12 @@ function pickLiveMimeType() {
   return candidates.find((type) => MediaRecorder.isTypeSupported?.(type)) || "video/webm";
 }
 
-// Se llama ~1s ANTES del flash (ver el onTick de startCountdown en la
-// última toma), así el clip arranca un poco antes del momento de la foto.
+// Se llama ~1s ANTES de CADA flash (ver el onTick de startCountdown en
+// takeNextShot), así cada clip arranca un poco antes del momento de su
+// propia foto — una grabación por toma, nunca dos al mismo tiempo (la
+// anterior ya se cerró antes de que arranque la cuenta regresiva siguiente).
 function startLiveRecording() {
   if (!cameraStream || typeof MediaRecorder === "undefined") return;
-  if (session.liveUrl) {
-    URL.revokeObjectURL(session.liveUrl);
-    session.liveUrl = null;
-  }
   liveChunks = [];
   try {
     liveRecorder = new MediaRecorder(cameraStream, { mimeType: pickLiveMimeType() });
@@ -329,17 +327,20 @@ function startLiveRecording() {
   }
 }
 
-// Se llama ~1s DESPUÉS del flash — cierra el clip y lo deja listo para
-// Preview (updatePreviewLiveToggle habilita el toggle "Live" cuando esto
-// termina, puede ser un instante después de llegar a la pantalla).
+// Se llama ~1s DESPUÉS del flash de esa misma toma — cierra el clip y lo
+// agrega a session.liveUrls en el mismo orden que capturedPhotos
+// (updatePreviewLiveToggle habilita el toggle "Live" cuando ya están
+// todas, puede terminar de completarse un instante después de llegar a
+// Preview si era la última toma).
 function stopLiveRecording() {
   if (!liveRecorder || liveRecorder.state === "inactive") return;
-  liveRecorder.onstop = () => {
-    const blob = new Blob(liveChunks, { type: liveRecorder.mimeType });
-    session.liveUrl = URL.createObjectURL(blob);
+  const recorder = liveRecorder;
+  recorder.onstop = () => {
+    const blob = new Blob(liveChunks, { type: recorder.mimeType });
+    session.liveUrls.push(URL.createObjectURL(blob));
     updatePreviewLiveToggle();
   };
-  liveRecorder.stop();
+  recorder.stop();
 }
 
 // "single" saca 1 foto; "strip" saca 3, una toma por vez con su propia
@@ -349,13 +350,14 @@ const SHOT_PAUSE_MS = 1200;
 
 function startShotSequence() {
   session.capturedPhotos = [];
+  session.liveUrls.forEach((url) => URL.revokeObjectURL(url));
+  session.liveUrls = [];
   takeNextShot();
 }
 
 function takeNextShot() {
   const totalShots = session.mode === "strip" ? 3 : 1;
   const shotNumber = session.capturedPhotos.length + 1;
-  const isLastShot = shotNumber === totalShots;
 
   const counterEl = document.getElementById("shotCounter");
   counterEl.hidden = totalShots === 1;
@@ -365,6 +367,7 @@ function takeNextShot() {
     async () => {
       const photo = await capturePhoto();
       if (photo) session.capturedPhotos.push(photo);
+      setTimeout(stopLiveRecording, LIVE_PHOTO_AFTER_MS); // ~1s más de clip después del flash de ESTA toma
 
       if (session.capturedPhotos.length < totalShots) {
         const el = document.getElementById("countdownText");
@@ -372,13 +375,12 @@ function takeNextShot() {
         setTimeout(takeNextShot, SHOT_PAUSE_MS);
       } else {
         showScreen("preview");
-        setTimeout(stopLiveRecording, LIVE_PHOTO_AFTER_MS); // ~1s más de clip después del flash
       }
     },
-    // Arranca a grabar 1s antes del flash de la ÚLTIMA toma — así la Live
-    // Photo tiene un poco de "antes", no solo "después".
+    // Arranca a grabar 1s antes del flash de CADA toma — así cada Live
+    // Photo tiene su propio "antes" y "después", correspondiente a su foto.
     (n) => {
-      if (isLastShot && n === 1) startLiveRecording();
+      if (n === 1) startLiveRecording();
     }
   );
 }
@@ -422,23 +424,24 @@ function fillPrintStripPhotos(container) {
 }
 
 // Mismo marco/mat/logo que fillPrintStripPhotos, pero cada celda es un
-// <video> en loop en vez de la imagen fija — y como el clip grabado no
-// tiene el marco ni el filtro "horneados" (eso solo pasa al componer la
-// foto fija en capturePhoto), se los superpone acá en vivo: el marco como
-// <img> encima, el filtro como CSS filter sobre el propio <video>.
+// <video> en loop en vez de la imagen fija — cada uno con el clip
+// correspondiente a esa toma (session.liveUrls está en el mismo orden que
+// capturedPhotos). Como el clip grabado no tiene el marco ni el filtro
+// "horneados" (eso solo pasa al componer la foto fija en capturePhoto), se
+// los superpone acá en vivo: el marco como <img> encima, el filtro como
+// CSS filter sobre el propio <video>.
 function fillPrintStripLive(container) {
-  if (!session.liveUrl) return;
+  if (!session.liveUrls.length) return;
 
-  const cellCount = session.mode === "strip" ? 3 : 1;
   const filterCss = FILTERS[session.filter] ?? "none";
 
   container.innerHTML = "";
-  for (let i = 0; i < cellCount; i += 1) {
+  session.liveUrls.forEach((url) => {
     const cell = document.createElement("div");
     cell.className = "print-strip__cell";
 
     const video = document.createElement("video");
-    video.src = session.liveUrl;
+    video.src = url;
     video.autoplay = true;
     video.loop = true;
     video.muted = true;
@@ -455,7 +458,7 @@ function fillPrintStripLive(container) {
     }
 
     container.appendChild(cell);
-  }
+  });
 }
 
 function renderPrintStrip() {
@@ -471,7 +474,7 @@ function renderPrintStrip() {
 // recuadro, se togglean, nunca los dos a la vez.
 function setPreviewView(view) {
   const container = document.getElementById("printStripPhotos");
-  if (view === "live" && session.liveUrl) {
+  if (view === "live" && session.liveUrls.length) {
     fillPrintStripLive(container);
   } else {
     fillPrintStripPhotos(container);
@@ -482,10 +485,12 @@ function setPreviewView(view) {
   });
 }
 
-// La Live Photo se graba en background (startLiveRecording/stopLiveRecording)
-// — esto muestra/oculta el toggle según si ya está lista.
+// La Live Photo de cada toma se graba en background (startLiveRecording/
+// stopLiveRecording) — esto muestra el toggle solo cuando TODAS las tomas
+// ya tienen su clip listo (si no, se vería una tira Live incompleta).
 function updatePreviewLiveToggle() {
-  const hasLive = !!session.liveUrl;
+  const hasLive =
+    session.capturedPhotos.length > 0 && session.liveUrls.length === session.capturedPhotos.length;
   document.getElementById("previewViewTabs").hidden = !hasLive;
   if (!hasLive) setPreviewView("photo");
 }
