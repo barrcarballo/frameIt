@@ -324,7 +324,7 @@ function startCountdown(onDone) {
   clearInterval(countdownTimer);
 
   const el = document.getElementById("countdownText");
-  let n = 3;
+  let n = 5;
   el.textContent = n;
 
   countdownTimer = setInterval(() => {
