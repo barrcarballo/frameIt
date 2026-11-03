@@ -226,11 +226,23 @@ flash, sin rebote/reversa. Se reescribió más simple y liviano:
    para engancharse ahí).
 2. `stopLiveRecording()` — corta la grabación ~1s después del flash,
    produce un `Blob` webm y lo deja listo en `session.liveUrl`.
-3. Mismo toggle "Foto"/"Live" en Preview que antes, mismo recuadro
-   (`#livePhotoPreview`), solo cambió cómo se arma el clip — bastante más
-   liviano para la Pi 3 al no procesar frame a frame.
+3. Mismo toggle "Foto"/"Live" en Preview que antes, solo cambió cómo se
+   arma el clip — bastante más liviano para la Pi 3 al no procesar frame a
+   frame.
 
 **Alcance de esta vuelta:** solo grabación + revisión en Preview. Conectar
 la Live Photo al QR/Instagram (hoy `/api/upload-photo` y `/galeria` solo
 manejan la foto estática) queda pendiente — toca el servidor de subida en
 los dos lados (local y Vercel) y las páginas de galería.
+
+### Corrección: la vista "Live" reusa la misma tira, no un video aparte
+La primera implementación de la UI mostraba la Live Photo en un `<video>`
+standalone (`#livePhotoPreview`) que tapaba toda la tarjeta `.print-strip`
+al togglear. El usuario corrigió: la tarjeta (mat, marco, logo) tiene que
+seguir siendo la misma, y lo único que cambia es el contenido de las
+celdas de foto. Se sacó el elemento standalone y se agregó
+`fillPrintStripLive()`, que llena el mismo contenedor `#printStripPhotos`
+con `<video>` en loop por celda (1 o 3 según el modo) en vez de `<img>` —
+con el marco cuadrado y el filtro superpuestos igual que en la foto
+estática. `setPreviewView()` ahora solo decide qué función usa para llenar
+ese contenedor compartido.
