@@ -7,9 +7,13 @@ Serves the static frontend (same as `python3 -m http.server`) and adds:
   y la guarda en uploads/latest.png.
 - POST /api/upload-video: recibe la Live Photo final (~10s, ver
   composeFinalVideoBlob en app.js) y la guarda en uploads/latest-live.webm.
-  Mismo contrato que upload-photo: devuelve la URL pública cruda del
-  archivo subido ({"url": "/uploads/..."}) — el frontend la combina con la
-  de la foto para armar el link de /galeria.html (ver uploadAndRenderQr).
+  Si hay `ffmpeg` instalado (brew/apt install ffmpeg), la convierte ACÁ, una
+  sola vez, a uploads/latest-live.mp4 y devuelve esa URL — así nadie tiene
+  que esperar una conversión en su celular al compartir/descargar (eso era
+  lento incluso con ffmpeg.wasm multi-thread, ver galeria.html). Si no hay
+  `ffmpeg` o la conversión falla, cae al webm crudo: /galeria.html detecta
+  la extensión y convierte con ffmpeg.wasm en el navegador como antes —
+  más lento, pero nunca rompe el flujo.
 - /galeria.html (archivo estático en la raíz, servido por el handler
   default de abajo, igual que en el deploy de Vercel): toma ?photo=...
   y, si está, &video=... para mostrar el toggle Foto/Live con el botón de
@@ -17,29 +21,48 @@ Serves the static frontend (same as `python3 -m http.server`) and adds:
   Instagram como una de las apps disponibles) más descarga directa como
   fallback. El QR de la pantalla "Entrega" apunta ahí. Lleva headers
   Cross-Origin-Opener-Policy/Cross-Origin-Embedder-Policy (ver
-  end_headers) para habilitar el build multi-thread de ffmpeg.wasm que
-  convierte el Live a MP4 — bastante más rápido que el single-thread, ver
-  galeria.html. Si el navegador no soporta ese aislamiento, la página cae
-  sola al modo simple (no rompe nada, ver self.crossOriginIsolated ahí).
+  end_headers) para habilitar el build multi-thread de ffmpeg.wasm (el
+  fallback de arriba). Si el navegador no soporta ese aislamiento, la
+  página cae sola al modo simple (no rompe nada, ver self.crossOriginIsolated
+  en galeria.html).
 
 Stdlib only — no Flask/FastAPI, consistent with the "vanilla, sin frameworks
 pesados" approach of the rest of the project. On the Raspberry Pi this runs
-as: python3 server.py  (instead of `python3 -m http.server`).
+as: python3 server.py  (instead of `python3 -m http.server`). Necesita
+`ffmpeg` en el PATH para la conversión rápida del Live — sin eso sigue
+funcionando, solo más lento (conversión en el celular de quien comparte).
 """
 
 import http.server
 import socketserver
 import pathlib
+import shutil
+import subprocess
 
 PORT = 8080
 ROOT = pathlib.Path(__file__).resolve().parent
 UPLOADS_DIR = ROOT / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
 
-UPLOAD_ROUTES = {
-    "/api/upload-photo": ("latest.png", "/uploads/latest.png"),
-    "/api/upload-video": ("latest-live.webm", "/uploads/latest-live.webm"),
-}
+FFMPEG_BIN = shutil.which("ffmpeg")
+
+
+def convert_webm_to_mp4(webm_path, mp4_path):
+    subprocess.run(
+        [
+            FFMPEG_BIN,
+            "-y",
+            "-i", str(webm_path),
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "23",
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            str(mp4_path),
+        ],
+        check=True,
+        capture_output=True,
+    )
 
 
 class FrameItHandler(http.server.SimpleHTTPRequestHandler):
@@ -60,26 +83,59 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_POST(self):
-        route = UPLOAD_ROUTES.get(self.path)
-        if route is None:
+        if self.path == "/api/upload-photo":
+            self._handle_upload_photo()
+        elif self.path == "/api/upload-video":
+            self._handle_upload_video()
+        else:
             self.send_error(404, "Not found")
-            return
 
-        filename, public_url = route
+    def _read_body(self):
         length = int(self.headers.get("Content-Length", 0))
         if length <= 0:
-            self.send_error(400, "Empty body")
-            return
+            return None
+        return self.rfile.read(length)
 
-        body = self.rfile.read(length)
-        (UPLOADS_DIR / filename).write_bytes(body)
-
-        payload = f'{{"url": "{public_url}"}}'.encode("utf-8")
+    def _respond_json(self, url):
+        payload = f'{{"url": "{url}"}}'.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
+
+    def _handle_upload_photo(self):
+        body = self._read_body()
+        if body is None:
+            self.send_error(400, "Empty body")
+            return
+        (UPLOADS_DIR / "latest.png").write_bytes(body)
+        self._respond_json("/uploads/latest.png")
+
+    def _handle_upload_video(self):
+        body = self._read_body()
+        if body is None:
+            self.send_error(400, "Empty body")
+            return
+
+        webm_path = UPLOADS_DIR / "latest-live.webm"
+        webm_path.write_bytes(body)
+
+        if FFMPEG_BIN:
+            mp4_path = UPLOADS_DIR / "latest-live.mp4"
+            try:
+                convert_webm_to_mp4(webm_path, mp4_path)
+                self._respond_json("/uploads/latest-live.mp4")
+                return
+            except subprocess.CalledProcessError as err:
+                mp4_path.unlink(missing_ok=True)  # puede haber quedado a medio escribir
+                stderr = err.stderr.decode("utf-8", "replace") if err.stderr else ""
+                print(f"[FrameIt] ffmpeg falló convirtiendo el Live a MP4, se sirve el webm crudo:\n{stderr}")
+
+        # Sin ffmpeg instalado, o si la conversión falló: se sirve el webm
+        # crudo — /galeria.html detecta la extensión y cae sola a convertir
+        # con ffmpeg.wasm en el celular (más lento, pero sigue andando).
+        self._respond_json("/uploads/latest-live.webm")
 
     def log_message(self, format, *args):
         # Un poco más silencioso que el default; igual muestra errores.
@@ -88,6 +144,11 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    if not FFMPEG_BIN:
+        print("[FrameIt] AVISO: no se encontró ffmpeg en el PATH — el Live se va a convertir en el")
+        print("          celular de quien comparte (más lento). Instalar con: brew install ffmpeg")
+        print("          (Mac) o sudo apt install ffmpeg (Raspberry Pi / Linux).")
+
     with socketserver.TCPServer(("", PORT), FrameItHandler) as httpd:
         print(f"FrameIt server corriendo en http://localhost:{PORT}")
         print(f"Fotos/videos subidos quedan en: {UPLOADS_DIR}")

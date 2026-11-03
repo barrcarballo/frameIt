@@ -159,6 +159,14 @@
       return new Blob([data.buffer], { type: "video/mp4" });
     }
 
+    // Si el servidor ya convirtió el Live a MP4 al subirlo (server.py con
+    // ffmpeg instalado, ver "convert_webm_to_mp4"), &video= ya apunta a un
+    // .mp4 — ahí no hace falta tocar ffmpeg.wasm para nada, se comparte/
+    // descarga directo (tan rápido como la foto). Si ffmpeg no estaba
+    // disponible en el servidor, &video= sigue siendo el .webm crudo y acá
+    // se convierte como antes (más lento, pero nunca rompe el flujo).
+    const videoIsMp4 = !!videoUrl && /\.mp4(\?|$)/i.test(videoUrl);
+
     // El Live convertido a MP4 se cachea (una sola conversión por visita a
     // la página aunque se comparta Y se descargue, o se comparta dos veces).
     // onPhase(fase) avisa si lo que está tardando es bajar el conversor
@@ -168,8 +176,13 @@
 
     function getLiveMp4Blob(onPhase) {
       if (!liveMp4Promise) {
-        const needsLoad = !ffmpegPromise;
         liveMp4Promise = (async () => {
+          if (videoIsMp4) {
+            const res = await fetch(videoUrl);
+            return res.blob();
+          }
+
+          const needsLoad = !ffmpegPromise;
           if (needsLoad) onPhase?.("loading");
           const webmBlob = await fetch(videoUrl).then((res) => res.blob());
           onPhase?.("converting");
