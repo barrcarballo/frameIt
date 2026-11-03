@@ -333,3 +333,31 @@ directo por el `href`, sin JS de por medio) y reusa la misma conversión
 vía `getLiveMp4Blob()` — cacheada en una promesa, así si en la misma
 visita se comparte Y se descarga (o se comparte dos veces), no se
 convierte dos veces.
+
+### Perf: la conversión a MP4 tardaba mucho (probado en iPhone 14 Pro Max)
+ffmpeg.wasm corre sin aceleración de hardware, así que la velocidad de
+conversión depende casi directo de la cantidad de píxeles por frame y del
+preset de codificación. Dos cambios:
+
+- El canvas que graba la Live Photo final bajó de 1080x1920@24fps a
+  720x1280@20fps (`EXPORT_VIDEO_W/H/FPS` en app.js, separado de
+  `EXPORT_W/H` que sigue usando la foto) — mismo 9:16, de sobra para
+  compartir a Instagram. `computeExportLayout()` se parametrizó para
+  aceptar el tamaño de canvas (antes asumía siempre `EXPORT_W/H`), así la
+  foto y el video pueden tener resoluciones distintas sin duplicar la
+  geometría.
+- `webmToMp4()` en galeria.html pasó de preset `veryfast` a `ultrafast`
+  (+ `crf 28`), priorizando velocidad sobre compresión/calidad.
+- El hint ahora distingue fase: "Cargando conversor de video (primera
+  vez)..." mientras baja el WASM (~25MB, una sola vez por visita) vs.
+  "Convirtiendo video..." durante la codificación en sí — antes decía lo
+  mismo todo el tiempo y parecía colgado.
+
+**Palanca más grande, no aplicada todavía:** el build de ffmpeg.wasm que
+se usa es single-threaded. Existe un build multi-threaded
+(`@ffmpeg/core-mt`) bastante más rápido (varios núcleos en paralelo), pero
+requiere headers `Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy`
+en el servidor para habilitar `SharedArrayBuffer` — con el riesgo de que,
+si algún recurso cross-origin no coopera, la página entera deje de cargar.
+No se tocó todavía porque no se puede validar sin probarlo en un
+dispositivo real.
