@@ -755,9 +755,14 @@ video.frame-thumb-photo {
 /* Modo "single": mat blanco y margen inferior grueso con el logo adentro —
    la silueta clásica de una polaroid, no la tarjeta bordó de la tira. */
 .print-strip--single {
+  /* La tarjeta single es bastante más alta que la de la tira (3 celdas) —
+     se recentra en el área segura (112-656) en vez de heredar el top
+     pensado para la chica, que la dejaba pegada arriba con aire muerto
+     abajo. */
+  top: 188px;
   width: 320px;
   padding: 20px 20px 36px;
-  gap: 18px;
+  gap: 22px;
   background: var(--color-white);
 }
 
