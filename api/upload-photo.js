@@ -8,8 +8,11 @@
 // la env var BLOB_READ_WRITE_TOKEN, el SDK la usa automático.
 //
 // El frontend (js/app.js) no sabe ni le importa si está hablando con esto
-// o con server.py: en los dos casos hace POST a /api/upload-photo y arma
-// la URL del QR con el campo "url" que le devuelva.
+// o con server.py: en los dos casos hace POST a /api/upload-photo y recibe
+// la URL pública del archivo subido — arma el link de /galeria.html él
+// mismo (ver uploadAndRenderQr), así puede combinar foto + Live Photo
+// (api/upload-video.js) en un solo QR sin que ninguno de los dos endpoints
+// tenga que saber del otro.
 
 import { put } from "@vercel/blob";
 
@@ -41,9 +44,7 @@ export default async function handler(req, res) {
       contentType: "image/png",
     });
 
-    res.status(200).json({
-      url: `/galeria.html?photo=${encodeURIComponent(blob.url)}`,
-    });
+    res.status(200).json({ url: blob.url });
   } catch (err) {
     console.error("[FrameIt] upload-photo error:", err);
     res.status(500).json({ error: "No se pudo subir la foto" });

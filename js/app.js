@@ -585,16 +585,21 @@ const EXPORT_H = 1920; // resolución real de IG Stories (9:16) — antes 640x11
 
 // Dibuja una tira (mat + celdas) rotada `deg` grados alrededor de (cx,cy).
 // `matColor`: color del mat (blanco para la tira de adelante, bordó para
-// la de atrás). `darken`: tapa cada foto con un overlay negro al 69%
+// la de atrás). `darken`: tapa cada celda con un overlay negro al 69%
 // (igual que el diseño original de Figma — no un filtro de brillo sobre
 // toda la tira). `shadow`: sombra proyectada (solo la tira de adelante).
-function drawRotatedStrip(ctx, photoImgs, cx, cy, w, deg, { matColor = "#ffffff", darken = false, shadow = false, bottomPad } = {}) {
+// `mediaEls` acepta tanto <img> (fotos, ya tienen marco/filtro horneados
+// en capturePhoto) como <video> (Live Photo: ver composeFinalVideoBlob) —
+// para estas últimas `filterCss` y `frameImg` se aplican acá porque el
+// clip crudo no los tiene, y se espejan porque MediaRecorder grabó el
+// stream crudo de la cámara (no la versión espejada que se ve en pantalla).
+function drawRotatedStrip(ctx, mediaEls, cx, cy, w, deg, { matColor = "#ffffff", darken = false, shadow = false, bottomPad, filterCss, frameImg } = {}) {
   const pad = w * 0.075;
   const padBottom = bottomPad ?? pad; // más grueso en modo "single" — silueta de polaroid real
   const cellW = w - pad * 2;
   const cellH = cellW / CROP_RATIO;
   const gap = pad * 0.55;
-  const h = pad + photoImgs.length * cellH + (photoImgs.length - 1) * gap + padBottom;
+  const h = pad + mediaEls.length * cellH + (mediaEls.length - 1) * gap + padBottom;
   const rad = (deg * Math.PI) / 180;
 
   ctx.save();
@@ -616,11 +621,29 @@ function drawRotatedStrip(ctx, photoImgs, cx, cy, w, deg, { matColor = "#ffffff"
   ctx.shadowColor = "transparent";
 
   let y = -h / 2 + pad;
-  photoImgs.forEach((img) => {
-    drawCoverCrop(ctx, img, img.naturalWidth || img.width, img.naturalHeight || img.height, cellW, cellH, -w / 2 + pad, y);
+  mediaEls.forEach((media) => {
+    const isVideo = media.tagName === "VIDEO";
+    const mw = isVideo ? media.videoWidth : media.naturalWidth || media.width;
+    const mh = isVideo ? media.videoHeight : media.naturalHeight || media.height;
+
+    if (filterCss) ctx.filter = filterCss;
+    if (isVideo) {
+      ctx.save();
+      ctx.translate(-w / 2 + pad + cellW, 0);
+      ctx.scale(-1, 1);
+      drawCoverCrop(ctx, media, mw, mh, cellW, cellH, 0, y);
+      ctx.restore();
+    } else {
+      drawCoverCrop(ctx, media, mw, mh, cellW, cellH, -w / 2 + pad, y);
+    }
+    if (filterCss) ctx.filter = "none";
+
     if (darken) {
       ctx.fillStyle = "rgba(0,0,0,0.69)";
       ctx.fillRect(-w / 2 + pad, y, cellW, cellH);
+    }
+    if (frameImg) {
+      ctx.drawImage(frameImg, -w / 2 + pad, y, cellW, cellH);
     }
     y += cellH + gap;
   });
@@ -629,6 +652,45 @@ function drawRotatedStrip(ctx, photoImgs, cx, cy, w, deg, { matColor = "#ffffff"
 
   // bbox rotado: |w·cos(a)| + |h·sin(a)| de ancho, |w·sin(a)| + |h·cos(a)| de alto
   return Math.abs(w * Math.sin(rad)) + Math.abs(h * Math.cos(rad));
+}
+
+// Geometría del abanico + logo, compartida entre la foto final (imagen) y
+// la Live Photo final (video) — mismo layout exacto en los dos casos,
+// calculado una sola vez en función de cuántas celdas hay.
+function computeExportLayout(mediaCount) {
+  // En modo "single" la tira tiene 1 sola celda, no 3 — se agranda (logo y
+  // separaciones escalan solos porque están definidos en función de stripW).
+  const stripW = EXPORT_W * (session.mode === "single" ? 0.62 : 0.48);
+  const logoW = stripW * 0.65;
+  const logoH = logoW * (42 / 113); // aspect ratio real de isologo-light.svg
+  const logoGap = stripW * 0.1;
+
+  // En modo "single" el mat lleva un margen inferior grueso (silueta de
+  // polaroid real), no el parejo que usa la tira de 3 celdas.
+  const isSingle = session.mode === "single";
+  const bottomPad = isSingle ? stripW * 0.22 : undefined;
+
+  // Alturas rotadas de ambas tiras (para saber cuál asoma más abajo) y
+  // centrado del bloque completo (abanico + logo) en el canvas.
+  const rad13 = (13.49 * Math.PI) / 180;
+  const rad16 = (-16.71 * Math.PI) / 180;
+  const padProbe = stripW * 0.075;
+  const cellWProbe = stripW - padProbe * 2;
+  const hProbe = padProbe + mediaCount * (cellWProbe / CROP_RATIO) + (mediaCount - 1) * padProbe * 0.55 + (bottomPad ?? padProbe);
+  const bbox13 = Math.abs(stripW * Math.sin(rad13)) + Math.abs(hProbe * Math.cos(rad13));
+  const bbox16 = Math.abs(stripW * Math.sin(rad16)) + Math.abs(hProbe * Math.cos(rad16));
+  const clusterH = Math.max(bbox13, bbox16);
+
+  const cx = EXPORT_W / 2;
+
+  // El logo ancla cerca del borde inferior (no centrado en todo el canvas)
+  // pero respetando el margen que IG Stories tapa con su propia UI abajo
+  // (~15% de la altura) — así nunca queda escondido detrás de esa barra.
+  const bottomSafeMargin = EXPORT_H * 0.05;
+  const logoY = EXPORT_H - bottomSafeMargin - logoH;
+  const clusterCy = logoY - logoGap - clusterH / 2;
+
+  return { stripW, logoW, logoH, bottomPad, cx, clusterCy, logoY };
 }
 
 async function composeFinalImageBlob() {
@@ -648,82 +710,167 @@ async function composeFinalImageBlob() {
 
   drawCoverCrop(ctx, bgImg, bgImg.naturalWidth || bgImg.width, bgImg.naturalHeight || bgImg.height, EXPORT_W, EXPORT_H);
 
-  // En modo "single" la tira tiene 1 sola foto, no 3 — se agranda (logo y
-  // separaciones escalan solos porque están definidos en función de stripW).
-  const stripW = EXPORT_W * (session.mode === "single" ? 0.62 : 0.48);
-  const logoW = stripW * 0.65;
-  const logoH = logoW * (42 / 113); // aspect ratio real de isologo-light.svg
-  const logoGap = stripW * 0.1;
-
-  // En modo "single" el mat lleva un margen inferior grueso (silueta de
-  // polaroid real), no el parejo que usa la tira de 3 fotos.
-  const isSingle = session.mode === "single";
-  const bottomPad = isSingle ? stripW * 0.22 : undefined;
-
-  // Alturas rotadas de ambas tiras (para saber cuál asoma más abajo) y
-  // centrado del bloque completo (abanico + logo) en el canvas.
-  const rad13 = (13.49 * Math.PI) / 180;
-  const rad16 = (-16.71 * Math.PI) / 180;
-  const padProbe = stripW * 0.075;
-  const cellWProbe = stripW - padProbe * 2;
-  const hProbe = padProbe + photoImgs.length * (cellWProbe / CROP_RATIO) + (photoImgs.length - 1) * padProbe * 0.55 + (bottomPad ?? padProbe);
-  const bbox13 = Math.abs(stripW * Math.sin(rad13)) + Math.abs(hProbe * Math.cos(rad13));
-  const bbox16 = Math.abs(stripW * Math.sin(rad16)) + Math.abs(hProbe * Math.cos(rad16));
-  const clusterH = Math.max(bbox13, bbox16);
-
-  const cx = EXPORT_W / 2;
-
-  // El logo ancla cerca del borde inferior (no centrado en todo el canvas)
-  // pero respetando el margen que IG Stories tapa con su propia UI abajo
-  // (~15% de la altura) — así nunca queda escondido detrás de esa barra.
-  const bottomSafeMargin = EXPORT_H * 0.05;
-  const logoY = EXPORT_H - bottomSafeMargin - logoH;
-  const clusterCy = logoY - logoGap - clusterH / 2;
+  const layout = computeExportLayout(photoImgs.length);
 
   // Atrás: mat bordó + overlay negro al 69% sobre cada foto (fiel al
   // diseño original). Adelante: mat blanco + sombra proyectada.
-  drawRotatedStrip(ctx, photoImgs, cx, clusterCy, stripW, 13.49, { matColor: "#3d0303", darken: true, bottomPad });
-  drawRotatedStrip(ctx, photoImgs, cx, clusterCy, stripW, -16.71, { shadow: true, bottomPad });
+  drawRotatedStrip(ctx, photoImgs, layout.cx, layout.clusterCy, layout.stripW, 13.49, { matColor: "#3d0303", darken: true, bottomPad: layout.bottomPad });
+  drawRotatedStrip(ctx, photoImgs, layout.cx, layout.clusterCy, layout.stripW, -16.71, { shadow: true, bottomPad: layout.bottomPad });
 
-  ctx.drawImage(logoImg, (EXPORT_W - logoW) / 2, logoY, logoW, logoH);
+  ctx.drawImage(logoImg, (EXPORT_W - layout.logoW) / 2, layout.logoY, layout.logoW, layout.logoH);
 
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
 
-// Sube la foto compuesta al mini servidor local (ver server.py) y renderiza
-// un QR real apuntando a esa URL. Si algo falla (sin fotos, servidor caído),
-// deja un mensaje en vez de romper la pantalla.
+// Mismo look que composeFinalImageBlob (fondo + abanico + logo), pero
+// animado: cada celda muestra su clip Live en loop, grabado en vivo sobre
+// un canvas con MediaRecorder durante EXPORT_VIDEO_MS (los clips originales
+// duran ~2s, se loopean para completar los 10s reales del archivo
+// compartido). Pensado solo para compartir (QR → /galeria), no se reproduce
+// dentro de la app.
+const EXPORT_VIDEO_MS = 10000;
+const EXPORT_FPS = 24;
+
+async function composeFinalVideoBlob() {
+  if (!session.liveUrls.length || session.liveUrls.length !== session.capturedPhotos.length) return null;
+  if (typeof MediaRecorder === "undefined") return null;
+
+  const [bgImg, logoImg, frameImg] = await Promise.all([
+    loadImage(`assets/img/${session.background}.png`),
+    loadImage("assets/logo/isologo-light.svg"),
+    session.frame ? preloadSquareFrame(session.frame) : Promise.resolve(null),
+  ]);
+
+  const videos = await Promise.all(
+    session.liveUrls.map(
+      (url) =>
+        new Promise((resolve) => {
+          const video = document.createElement("video");
+          video.muted = true;
+          video.loop = true;
+          video.playsInline = true;
+          video.addEventListener("loadeddata", () => {
+            video.play().catch(() => {});
+            resolve(video);
+          });
+          video.src = url;
+        })
+    )
+  );
+
+  const canvas = document.createElement("canvas");
+  canvas.width = EXPORT_W;
+  canvas.height = EXPORT_H;
+  const ctx = canvas.getContext("2d");
+
+  const layout = computeExportLayout(videos.length);
+  const filterCss = FILTERS[session.filter] ?? "none";
+
+  let recorder;
+  try {
+    recorder = new MediaRecorder(canvas.captureStream(EXPORT_FPS), { mimeType: pickLiveMimeType() });
+  } catch (err) {
+    console.warn("[FrameIt] No se pudo armar el video final de la Live Photo:", err);
+    return null;
+  }
+
+  const chunks = [];
+  recorder.ondataavailable = (e) => {
+    if (e.data.size) chunks.push(e.data);
+  };
+
+  return new Promise((resolve) => {
+    let rafId;
+    const draw = () => {
+      drawCoverCrop(ctx, bgImg, bgImg.naturalWidth || bgImg.width, bgImg.naturalHeight || bgImg.height, EXPORT_W, EXPORT_H);
+      drawRotatedStrip(ctx, videos, layout.cx, layout.clusterCy, layout.stripW, 13.49, {
+        matColor: "#3d0303",
+        darken: true,
+        bottomPad: layout.bottomPad,
+        filterCss,
+        frameImg,
+      });
+      drawRotatedStrip(ctx, videos, layout.cx, layout.clusterCy, layout.stripW, -16.71, {
+        shadow: true,
+        bottomPad: layout.bottomPad,
+        filterCss,
+        frameImg,
+      });
+      ctx.drawImage(logoImg, (EXPORT_W - layout.logoW) / 2, layout.logoY, layout.logoW, layout.logoH);
+      rafId = requestAnimationFrame(draw);
+    };
+
+    recorder.onstop = () => {
+      cancelAnimationFrame(rafId);
+      videos.forEach((video) => video.pause());
+      resolve(new Blob(chunks, { type: recorder.mimeType }));
+    };
+
+    recorder.start();
+    draw();
+    setTimeout(() => recorder.stop(), EXPORT_VIDEO_MS);
+  });
+}
+
+// Sube un blob (foto o video) al backend correspondiente (ver server.py y
+// api/upload-*.js) y devuelve la URL pública del archivo subido.
+async function uploadAsset(endpoint, blob, contentType) {
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": contentType },
+    body: blob,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return data.url;
+}
+
+function renderExportQr(container, galleryQuery) {
+  container.innerHTML = "";
+  // eslint-disable-next-line no-undef -- viene de js/vendor/qrcode.min.js
+  new QRCode(container, {
+    text: `${location.origin}/galeria.html?${galleryQuery}`,
+    width: 175,
+    height: 175,
+    colorDark: "#3d0303",
+    colorLight: "#ffdede",
+  });
+}
+
+// Sube la foto compuesta y renderiza un QR real apuntando a /galeria. Si
+// algo falla (sin fotos, servidor caído), deja un mensaje en vez de romper
+// la pantalla. La Live Photo final (~10s, ver composeFinalVideoBlob) tarda
+// bastante más en armarse/subirse, así que corre aparte, SIN bloquear el QR
+// de la foto: si sale bien, el QR se regenera en el mismo lugar agregando
+// el link del video.
 async function uploadAndRenderQr() {
   const qrContainer = document.getElementById("exportQr");
 
-  const blob = await composeFinalImageBlob();
-  if (!blob) {
+  const photoBlob = await composeFinalImageBlob();
+  if (!photoBlob) {
     qrContainer.textContent = "Sin foto para compartir";
     return;
   }
 
+  let photoUrl;
   try {
-    const res = await fetch("/api/upload-photo", {
-      method: "POST",
-      headers: { "Content-Type": "image/png" },
-      body: blob,
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    qrContainer.innerHTML = "";
-    // eslint-disable-next-line no-undef -- viene de js/vendor/qrcode.min.js
-    new QRCode(qrContainer, {
-      text: `${location.origin}${data.url}`,
-      width: 175,
-      height: 175,
-      colorDark: "#3d0303",
-      colorLight: "#ffdede",
-    });
+    photoUrl = await uploadAsset("/api/upload-photo", photoBlob, "image/png");
   } catch (err) {
     console.warn("[FrameIt] No se pudo subir la foto para el QR:", err);
     qrContainer.textContent = "No se pudo generar el QR";
+    return;
   }
+
+  renderExportQr(qrContainer, `photo=${encodeURIComponent(photoUrl)}`);
+
+  composeFinalVideoBlob()
+    .then((videoBlob) => (videoBlob ? uploadAsset("/api/upload-video", videoBlob, "video/webm") : null))
+    .then((videoUrl) => {
+      if (videoUrl) {
+        renderExportQr(qrContainer, `photo=${encodeURIComponent(photoUrl)}&video=${encodeURIComponent(videoUrl)}`);
+      }
+    })
+    .catch((err) => console.warn("[FrameIt] No se pudo subir la Live Photo (se comparte solo la foto):", err));
 }
 
 const WELCOME_LOOP_MS = 3000;
