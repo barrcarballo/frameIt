@@ -246,3 +246,16 @@ con `<video>` en loop por celda (1 o 3 según el modo) en vez de `<img>` —
 con el marco cuadrado y el filtro superpuestos igual que en la foto
 estática. `setPreviewView()` ahora solo decide qué función usa para llenar
 ese contenedor compartido.
+
+### Corrección: un clip Live por toma, no el de la última repetido
+En modo tira, `startLiveRecording`/`stopLiveRecording` solo grababan
+alrededor del flash de la ÚLTIMA toma, y `fillPrintStripLive` repetía esa
+misma URL en las 3 celdas. El usuario corrigió: cada celda tiene que
+mostrar el Live correspondiente a SU propia foto. Se pasó de
+`session.liveUrl` (string) a `session.liveUrls` (array, mismo orden que
+`capturedPhotos`): ahora se grava un clip por cada toma (arranca 1s antes
+de cada flash, corta 1s después — nunca se superponen porque la pausa
+entre tomas es más larga que ese margen), y `fillPrintStripLive` itera el
+array en vez de repetir una sola URL. El toggle "Live" se habilita recién
+cuando `liveUrls.length === capturedPhotos.length`, para no mostrar una
+tira a medio completar.
