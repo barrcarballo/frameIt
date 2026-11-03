@@ -102,19 +102,44 @@
       render();
     }
 
-    // Instancia única de ffmpeg, se carga (~25MB) la primera vez que hace
-    // falta convertir un Live y se reusa si se comparte de nuevo.
+    // Instancia única de ffmpeg, se carga la primera vez que hace falta
+    // convertir un Live y se reusa si se comparte de nuevo.
+    //
+    // self.crossOriginIsolated solo es true si el servidor mandó los
+    // headers COOP/COEP (ver server.py / vercel.json) Y el navegador los
+    // soportó — ahí entra el build multi-thread (@ffmpeg/core-mt, varios
+    // núcleos en paralelo, bastante más rápido). Si no, cae sola al build
+    // single-thread de siempre: nunca rompe, en el peor caso queda igual
+    // de rápido/lento que antes.
     let ffmpegPromise = null;
+
+    async function loadFFmpegCore(ffmpeg, pkg, multiThreaded) {
+      const baseURL = `https://unpkg.com/${pkg}/dist/esm`;
+      const config = {
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+      };
+      if (multiThreaded) {
+        config.workerURL = await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, "text/javascript");
+      }
+      await ffmpeg.load(config);
+    }
 
     function getFFmpeg() {
       if (!ffmpegPromise) {
         ffmpegPromise = (async () => {
           const ffmpeg = new FFmpeg();
-          const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
-          await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-          });
+
+          if (self.crossOriginIsolated) {
+            try {
+              await loadFFmpegCore(ffmpeg, "@ffmpeg/core-mt@0.12.6", true);
+              return ffmpeg;
+            } catch (err) {
+              console.warn("[FrameIt] No se pudo cargar ffmpeg multi-thread, se usa la versión simple:", err);
+            }
+          }
+
+          await loadFFmpegCore(ffmpeg, "@ffmpeg/core@0.12.6", false);
           return ffmpeg;
         })();
       }

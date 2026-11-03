@@ -15,7 +15,12 @@ Serves the static frontend (same as `python3 -m http.server`) and adds:
   y, si está, &video=... para mostrar el toggle Foto/Live con el botón de
   "Compartir" (Web Share API, abre el selector nativo del celular, con
   Instagram como una de las apps disponibles) más descarga directa como
-  fallback. El QR de la pantalla "Entrega" apunta ahí.
+  fallback. El QR de la pantalla "Entrega" apunta ahí. Lleva headers
+  Cross-Origin-Opener-Policy/Cross-Origin-Embedder-Policy (ver
+  end_headers) para habilitar el build multi-thread de ffmpeg.wasm que
+  convierte el Live a MP4 — bastante más rápido que el single-thread, ver
+  galeria.html. Si el navegador no soporta ese aislamiento, la página cae
+  sola al modo simple (no rompe nada, ver self.crossOriginIsolated ahí).
 
 Stdlib only — no Flask/FastAPI, consistent with the "vanilla, sin frameworks
 pesados" approach of the rest of the project. On the Raspberry Pi this runs
@@ -40,6 +45,19 @@ UPLOAD_ROUTES = {
 class FrameItHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
+
+    def end_headers(self):
+        # Solo en /galeria.html: habilita el aislamiento cross-origin que
+        # pide ffmpeg.wasm para correr multi-thread (varios núcleos en vez
+        # de uno solo) al convertir el Live a MP4 — "credentialless" en vez
+        # de "require-corp" porque la página carga <img>/<video> desde
+        # Vercel Blob (cross-origin) sin control sobre sus headers; con
+        # "require-corp" esas cargas se romperían si Vercel Blob no manda
+        # Cross-Origin-Resource-Policy.
+        if self.path.split("?", 1)[0] == "/galeria.html":
+            self.send_header("Cross-Origin-Opener-Policy", "same-origin")
+            self.send_header("Cross-Origin-Embedder-Policy", "credentialless")
+        super().end_headers()
 
     def do_POST(self):
         route = UPLOAD_ROUTES.get(self.path)
