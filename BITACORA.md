@@ -259,3 +259,39 @@ entre tomas es más larga que ese margen), y `fillPrintStripLive` itera el
 array en vez de repetir una sola URL. El toggle "Live" se habilita recién
 cuando `liveUrls.length === capturedPhotos.length`, para no mostrar una
 tira a medio completar.
+
+### Compartir la Live Photo (video de 10s) desde Entrega
+Hasta ahora la Live Photo solo se podía ver en Preview; el usuario pidió
+poder compartirla también, con la misma terminación visual que la foto
+final (fondo elegido + tira/polaroid con marco y logo horneados) y que
+dure 10s reales al compartirse (los clips grabados son de ~2s cada uno).
+
+- `composeFinalVideoBlob()`: mismo canvas de `composeFinalImageBlob` pero
+  animado — dibuja fondo + abanico + logo en un loop de `requestAnimationFrame`
+  (cada celda muestra su `<video>` correspondiente, en loop), grabado con
+  `MediaRecorder` sobre `canvas.captureStream()` durante 10000ms exactos.
+  `drawRotatedStrip` se generalizó para aceptar tanto `<img>` como `<video>`:
+  para los videos aplica el filtro CSS y el marco cuadrado ahí mismo (el
+  clip crudo no los tiene horneados, a diferencia de la foto) y los espeja
+  (MediaRecorder grabó el stream crudo de la cámara, no la versión
+  espejada que se ve en pantalla). Se extrajo `computeExportLayout()` con
+  la geometría del abanico/logo para que la foto y el video usen exactamente
+  el mismo layout sin duplicar los números mágicos.
+- `uploadAndRenderQr()`: sube la foto primero y muestra el QR de una
+  (como antes); la Live Photo final se compone/sube en paralelo SIN
+  bloquear ese QR (tarda ~10s en grabarse) — si sale bien, regenera el QR
+  en el mismo lugar agregando el link del video.
+- Los endpoints de subida (`api/upload-photo.js`, `api/upload-video.js`
+  nuevo, y `server.py` local) ahora devuelven la URL cruda del archivo
+  subido en vez de armar ellos mismos el link de `/galeria` — así el
+  frontend combina foto+video en un solo QR (`/galeria.html?photo=...&video=...`)
+  sin que los dos endpoints se conozcan entre sí. Se sacó el `GALLERY_HTML`
+  embebido que tenía `server.py` (duplicaba `galeria.html`) a favor del
+  archivo estático único, igual que en el deploy de Vercel.
+- `galeria.html`: toggle Foto/Live (solo aparece si llegó `&video=`),
+  compartir/descargar según cuál esté activa.
+
+**Riesgo conocido, sin validar todavía:** componer 10s de video en vivo
+(canvas + `MediaRecorder`, con `ctx.filter` corriendo en cada frame) es
+bastante más pesado que la foto estática — falta probarlo en la
+Raspberry Pi 3 real, no solo en desktop.
