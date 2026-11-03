@@ -590,7 +590,7 @@ async function uploadAndRenderQr() {
   }
 }
 
-const WELCOME_LOOP_MS = 4000;
+const WELCOME_LOOP_MS = 3000;
 
 // "Loop de marca" de la pantalla de bienvenida: alterna cada 4s entre la
 // variante rosa (logo bicolor) y la bordó (logo claro) — dos versiones del
