@@ -213,27 +213,24 @@ cámara, y `ctx.filter` en el canvas al componer la foto final — el canvas
 definición por filtro sin duplicar lógica. El filter se aplica solo a la
 foto, no al marco (se resetea antes de dibujarlo encima).
 
-### Boomerang (Live) en Preview
-Nueva pestaña "Foto"/"Live" en Preview — el boomerang es real (adelante +
-reversa en loop), no un video simple. Se graba en background al terminar
-la última toma (no bloquea la navegación a Preview):
-1. `captureFramesFromStream()` — captura frames en vivo del `MediaStream`
-   compartido vía `requestVideoFrameCallback` (liviano, no graba/decodifica
-   un archivo intermedio), ~1.5s a 12fps.
-2. `encodeBoomerang()` — dibuja esos frames (adelante, después la misma
-   secuencia invertida, sin repetir los extremos) en un canvas y lo
-   recodifica con `MediaRecorder` sobre `canvas.captureStream()`, produce
-   un `Blob` webm real.
-3. El toggle "Foto"/"Live" en Preview aparece recién cuando el boomerang
-   terminó de armarse (puede tardar un poco más que la navegación misma).
+### Live Photo en Preview (primer intento: boomerang — descartado)
+Primer intento: boomerang real (adelante+reversa, frame-by-frame vía
+`requestVideoFrameCallback` + recodificado con `MediaRecorder` sobre un
+canvas). El usuario aclaró que no era lo que pedía — quería algo tipo
+**Live Photo de iPhone**: un clip natural de ~1s antes + ~1s después del
+flash, sin rebote/reversa. Se reescribió más simple y liviano:
 
-**Pendiente/riesgo real:** esto es CPU-intensivo (frame-by-frame, sin
-aceleración de hardware). Anda bien en desktop (probado en Mac), pero
-**no se validó en la Raspberry Pi 3** — el target real del proyecto. Hay
-que probarlo ahí antes de darlo por cerrado; si va muy lento, bajar
-`BOOMERANG_FPS`/`BOOMERANG_DURATION_MS` en app.js o reconsiderar el enfoque.
+1. `startLiveRecording()` — arranca `MediaRecorder` DIRECTO sobre el
+   `MediaStream` de la cámara (sin tocar frames ni canvas) 1 segundo antes
+   del flash de la última toma (`startCountdown` ahora acepta un `onTick`
+   para engancharse ahí).
+2. `stopLiveRecording()` — corta la grabación ~1s después del flash,
+   produce un `Blob` webm y lo deja listo en `session.liveUrl`.
+3. Mismo toggle "Foto"/"Live" en Preview que antes, mismo recuadro
+   (`#livePhotoPreview`), solo cambió cómo se arma el clip — bastante más
+   liviano para la Pi 3 al no procesar frame a frame.
 
 **Alcance de esta vuelta:** solo grabación + revisión en Preview. Conectar
-el boomerang al QR/Instagram (hoy `/api/upload-photo` y `/galeria` solo
+la Live Photo al QR/Instagram (hoy `/api/upload-photo` y `/galeria` solo
 manejan la foto estática) queda pendiente — toca el servidor de subida en
 los dos lados (local y Vercel) y las páginas de galería.
