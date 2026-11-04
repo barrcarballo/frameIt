@@ -483,3 +483,52 @@ próxima vez):
   para esa red en Ajustes).
 - Safari interpreta una IP pelada sin protocolo como intento de HTTPS —
   hay que escribir la URL completa con `http://` y el puerto (`:8080`).
+
+### Fix: QR a localhost, log_message roto, y <video> sin Range requests
+
+Tres bugs más encontrados durante el primer test end-to-end en la Pi real
+(hasta acá todo se había probado o en la Mac, o parcial en la Pi):
+
+1. **QR apuntaba a `localhost`**: el kiosco navega a `localhost:8080` a
+   propósito (lo necesita `getUserMedia`), pero `renderExportQr` armaba
+   el link con `location.origin` — para el celular de un invitado,
+   "localhost" es su propio loopback, no la Pi. Fix: `GET /api/host-info`
+   en `server.py` (IP LAN real vía socket UDP truco) + `getGalleryOrigin()`
+   en `app.js`, con fallback a `location.origin` (así Vercel sigue igual).
+
+2. **`log_message` explotaba en cualquier error HTTP** (confirmado con el
+   404 de `/favicon.ico`, que el navegador pide solo): el filtro hacía
+   `"POST" in args[0]`, pero en un error `args[0]` es un `HTTPStatus`, no
+   un string — `TypeError`. No tumbaba el server entero (`socketserver`
+   atrapa la excepción por request), pero sí cortaba esa conexión y
+   llenaba el log de tracebacks. Fix: chequear `isinstance(args[0], str)`
+   antes de filtrar.
+
+3. **El Live se descargaba bien pero no se veía en la preview de
+   `/galeria.html`**: Safari (y la mayoría de navegadores) reproduce
+   `<video>` pidiendo el archivo en pedazos vía header `Range`, no de una
+   sola vez como una descarga — `SimpleHTTPRequestHandler` lo ignora por
+   completo y siempre manda el archivo entero con `200`, confirmado con
+   `curl -H "Range: ..."` devolviendo igual Content-Length que sin el
+   header. Fix: `send_head()` override que responde `206 Partial Content`
+   con el rango pedido. Primer intento tuvo DOS bugs propios: (a) el
+   caso sufijo `bytes=-500` (RFC 7233: "los últimos 500 bytes") se
+   calculaba mal, lo trataba como si pidiera "hasta el byte 500"; (b) la
+   respuesta 416 (rango inválido) no mandaba `Content-Length` — bajo
+   HTTP/1.1 con keep-alive eso deja al cliente colgado para siempre
+   esperando el cierre de una conexión que nunca llega (reproducido y
+   confirmado con `curl --max-time`). Ambos corregidos y validados con
+   `curl` (rango simple, sufijo, open-ended, e inválido) antes de subir.
+
+**Decisión aparte:** no se le va a agregar HTTPS a la Pi local. El botón
+"Compartir" (Web Share API) también exige contexto seguro — sin HTTPS,
+los invitados van a ver siempre el fallback de "descargá y compartí
+manual" (ya probado, anda bien). Un certificado autofirmado sería peor
+UX que el warning actual de Private Relay, y HTTPS real necesitaría
+dominio público + exponer la Pi a internet — no vale la pena para un
+kiosco de evento local.
+
+**Pendiente:** seguir probando el flujo completo en la Pi con estos tres
+fixes — todavía no se confirmó un ciclo 100% limpio de punta a punta
+(foto + Live grabados con cámara real → QR → celular → Live con preview
+Y compartir/descargar, todo en una sola pasada sin errores).
