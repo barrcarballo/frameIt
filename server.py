@@ -51,6 +51,10 @@ ROOT = pathlib.Path(__file__).resolve().parent
 UPLOADS_DIR = ROOT / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
 
+# Debe coincidir con EXPORT_VIDEO_FPS en js/app.js — ver el comentario en
+# convert_webm_to_mp4 sobre por qué forzar esto importa.
+LIVE_VIDEO_FPS = 20
+
 FFMPEG_BIN = shutil.which("ffmpeg")
 
 
@@ -81,6 +85,16 @@ def convert_webm_to_mp4(webm_path, mp4_path):
             "-preset", "veryfast",
             "-crf", "23",
             "-pix_fmt", "yuv420p",
+            # El webm que graba MediaRecorder desde un canvas (ver
+            # composeFinalVideoBlob en app.js) trae un timing de frames
+            # medio berreta — sin esto, ffmpeg heredaba un r_frame_rate
+            # absurdo (~2000fps vistos en un caso real) y elegía un H.264
+            # Level altísimo (Level 6.0, pensado para 8K) que el decoder
+            # de hardware de iPhone/iPad no soporta: el archivo quedaba
+            # perfecto pero Safari se negaba a reproducirlo en <video>
+            # (aunque sí abría bien desde Fotos). Forzar el fps real acá
+            # arregla el Level de raíz.
+            "-r", str(LIVE_VIDEO_FPS),
             "-movflags", "+faststart",
             str(mp4_path),
         ],
