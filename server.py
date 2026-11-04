@@ -179,8 +179,12 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
         self._respond_json({"url": "/uploads/latest-live.webm"})
 
     def log_message(self, format, *args):
-        # Un poco más silencioso que el default; igual muestra errores.
-        if "POST" in args[0] or "GET" in args[0]:
+        # Un poco más silencioso que el default — pero en un error (404,
+        # etc.) send_error() llama a esto con args[0] = HTTPStatus, no un
+        # string, y "POST" in args[0] explota. Esos errores sí se loguean
+        # (son justo los que importa ver), solo se filtran las líneas de
+        # request normales.
+        if not isinstance(args[0], str) or "POST" in args[0] or "GET" in args[0]:
             super().log_message(format, *args)
 
 
