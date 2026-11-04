@@ -532,3 +532,38 @@ kiosco de evento local.
 fixes — todavía no se confirmó un ciclo 100% limpio de punta a punta
 (foto + Live grabados con cámara real → QR → celular → Live con preview
 Y compartir/descargar, todo en una sola pasada sin errores).
+
+### Fix: el Live se descargaba bien pero no reproducía en el `<video>` — causa real
+
+El fix de Range requests (arriba) era necesario pero no suficiente: con
+`Range` andando, el Live seguía sin reproducir en Safari — ahí apareció
+un ícono de "no se puede reproducir" en vez de quedar en blanco (gracias
+a agregar `controls` al `<video>` como red de seguridad, commit
+`c9285b2`), confirmando que el archivo SÍ llegaba pero Safari lo
+rechazaba.
+
+Diagnóstico con `ffprobe -show_streams` sobre el `.mp4` real (no uno de
+prueba): `r_frame_rate=2000/1` — el contenedor declaraba **2000 fps**,
+un valor absurdo. Eso llevaba a `ffmpeg`/libx264 a elegir
+`level=60` (H.264 Level 6.0, pensado para 8K) al convertir, muy por
+encima de lo que soporta el decoder de hardware de un iPhone/iPad —
+Safari se niega a reproducirlo en `<video>`, aunque Fotos (con otro
+camino de decodificación, más tolerante) sí podía abrirlo.
+
+Causa raíz: el webm crudo que graba `MediaRecorder` desde el canvas
+(ver `composeFinalVideoBlob` en `app.js`) trae un timing de frames poco
+confiable — un VP9 con `tbr`/`tbn` de "1k" en vez del fps real — y
+`convert_webm_to_mp4` en `server.py` no forzaba un fps de salida, así
+que heredaba directamente esa rareza.
+
+**Fix:** agregado `-r 20` (constante `LIVE_VIDEO_FPS`, debe coincidir
+con `EXPORT_VIDEO_FPS` de `app.js`) al comando de `ffmpeg`. Validado
+re-convirtiendo el webm real de una sesión que había fallado: antes
+`level=60` / `r_frame_rate=2000/1`, después `level=31` / `r_frame_rate=20/1`
+— y confirmado reproduciendo bien en el `<video>` del celular real.
+
+**Con esto los cuatro bugs de esta sesión de testing quedaron resueltos
+y confirmados en la Pi real**: QR a localhost, `log_message` roto, sin
+soporte de Range, y el Level de H.264 absurdo. Falta un ciclo 100%
+limpio de punta a punta sin reemplazar archivos a mano (la próxima vez
+que se grabe un Live nuevo desde la cámara, debería salir bien directo).
