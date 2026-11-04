@@ -564,6 +564,15 @@ re-convirtiendo el webm real de una sesión que había fallado: antes
 
 **Con esto los cuatro bugs de esta sesión de testing quedaron resueltos
 y confirmados en la Pi real**: QR a localhost, `log_message` roto, sin
-soporte de Range, y el Level de H.264 absurdo. Falta un ciclo 100%
-limpio de punta a punta sin reemplazar archivos a mano (la próxima vez
-que se grabe un Live nuevo desde la cámara, debería salir bien directo).
+soporte de Range, y el Level de H.264 absurdo.
+
+**Confirmado:** ciclo 100% limpio de punta a punta en la Pi real (sin
+reemplazar archivos a mano) — cámara real → Live grabado → QR → celular
+→ Live con preview Y compartir/descargar, todo andando. Primer deploy
+real de FrameIt queda validado.
+
+(Nota aparte, no relacionada al código: en medio de las pruebas el VNC
+de la Pi dejó de conectar — resultó ser un lío de tres servidores VNC
+distintos (`x11vnc`, RealVNC, `wayvnc`) compitiendo por el mismo puerto,
+preexistente, no causado por nada de esta sesión. Un `sudo reboot` lo
+resolvió.)
