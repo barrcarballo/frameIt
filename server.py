@@ -3,6 +3,10 @@
 FrameIt — mini local server.
 
 Serves the static frontend (same as `python3 -m http.server`) and adds:
+- GET /api/host-info: devuelve la IP LAN real de la Pi (no "localhost").
+  El kiosco navega a localhost:8080 (lo necesita getUserMedia), pero el
+  QR final tiene que apuntar a algo que el celular de un invitado pueda
+  resolver — ver renderExportQr/getGalleryOrigin en app.js.
 - POST /api/upload-photo: recibe la foto final compuesta desde el navegador
   y la guarda en uploads/latest.png.
 - POST /api/upload-video: recibe la Live Photo final (~10s, ver
@@ -34,8 +38,10 @@ funcionando, solo más lento (conversión en el celular de quien comparte).
 """
 
 import http.server
+import json
 import pathlib
 import shutil
+import socket
 import subprocess
 
 PORT = 8080
@@ -44,6 +50,23 @@ UPLOADS_DIR = ROOT / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
 
 FFMPEG_BIN = shutil.which("ffmpeg")
+
+
+def get_lan_ip():
+    # Trick estándar: un socket UDP "conectado" no manda nada por la red,
+    # solo le pregunta al SO qué interfaz usaría para llegar a esa IP — así
+    # se consigue la IP LAN real sin depender de hostname/mDNS.
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
+LAN_IP = get_lan_ip()
 
 
 def convert_webm_to_mp4(webm_path, mp4_path):
@@ -86,6 +109,12 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Cross-Origin-Embedder-Policy", "credentialless")
         super().end_headers()
 
+    def do_GET(self):
+        if self.path == "/api/host-info":
+            self._handle_host_info()
+        else:
+            super().do_GET()
+
     def do_POST(self):
         if self.path == "/api/upload-photo":
             self._handle_upload_photo()
@@ -100,13 +129,21 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
             return None
         return self.rfile.read(length)
 
-    def _respond_json(self, url):
-        payload = f'{{"url": "{url}"}}'.encode("utf-8")
+    def _respond_json(self, obj):
+        payload = json.dumps(obj).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
+
+    def _handle_host_info(self):
+        # El kiosco accede a localhost (lo necesita getUserMedia, que solo
+        # funciona en "contexto seguro"), pero el QR tiene que apuntar a
+        # algo que el celular de un invitado pueda resolver — localhost ahí
+        # sería su propio loopback, no la Pi. app.js usa esto para armar el
+        # QR en vez de location.origin.
+        self._respond_json({"origin": f"http://{LAN_IP}:{PORT}"})
 
     def _handle_upload_photo(self):
         body = self._read_body()
@@ -114,7 +151,7 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(400, "Empty body")
             return
         (UPLOADS_DIR / "latest.png").write_bytes(body)
-        self._respond_json("/uploads/latest.png")
+        self._respond_json({"url": "/uploads/latest.png"})
 
     def _handle_upload_video(self):
         body = self._read_body()
@@ -129,7 +166,7 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
             mp4_path = UPLOADS_DIR / "latest-live.mp4"
             try:
                 convert_webm_to_mp4(webm_path, mp4_path)
-                self._respond_json("/uploads/latest-live.mp4")
+                self._respond_json({"url": "/uploads/latest-live.mp4"})
                 return
             except subprocess.CalledProcessError as err:
                 mp4_path.unlink(missing_ok=True)  # puede haber quedado a medio escribir
@@ -139,7 +176,7 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
         # Sin ffmpeg instalado, o si la conversión falló: se sirve el webm
         # crudo — /galeria.html detecta la extensión y cae sola a convertir
         # con ffmpeg.wasm en el celular (más lento, pero sigue andando).
-        self._respond_json("/uploads/latest-live.webm")
+        self._respond_json({"url": "/uploads/latest-live.webm"})
 
     def log_message(self, format, *args):
         # Un poco más silencioso que el default; igual muestra errores.

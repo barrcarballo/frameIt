@@ -845,11 +845,29 @@ async function uploadAsset(endpoint, blob, contentType) {
   return data.url;
 }
 
-function renderExportQr(container, galleryQuery) {
+// El kiosco navega a http://localhost:8080 (lo necesita getUserMedia, que
+// solo funciona en contexto seguro) — pero location.origin ahí sería
+// "localhost", que para el celular de un invitado es su propio loopback,
+// no la Pi. /api/host-info (server.py) devuelve la IP LAN real; si no
+// existe (deploy de Vercel, donde location.origin ya es la URL pública
+// correcta) o falla, cae a location.origin como antes.
+let galleryOriginPromise = null;
+function getGalleryOrigin() {
+  if (!galleryOriginPromise) {
+    galleryOriginPromise = fetch("/api/host-info")
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => data.origin)
+      .catch(() => location.origin);
+  }
+  return galleryOriginPromise;
+}
+
+async function renderExportQr(container, galleryQuery) {
+  const origin = await getGalleryOrigin();
   container.innerHTML = "";
   // eslint-disable-next-line no-undef -- viene de js/vendor/qrcode.min.js
   new QRCode(container, {
-    text: `${location.origin}/galeria.html?${galleryQuery}`,
+    text: `${origin}/galeria.html?${galleryQuery}`,
     width: 175,
     height: 175,
     colorDark: "#3d0303",
@@ -894,7 +912,7 @@ async function uploadAndRenderQr() {
 
   let query = `photo=${encodeURIComponent(photoUrl)}`;
   if (videoUrl) query += `&video=${encodeURIComponent(videoUrl)}`;
-  renderExportQr(qrContainer, query);
+  await renderExportQr(qrContainer, query);
 }
 
 const WELCOME_LOOP_MS = 3000;
