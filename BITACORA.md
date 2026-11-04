@@ -576,3 +576,13 @@ de la Pi dejó de conectar — resultó ser un lío de tres servidores VNC
 distintos (`x11vnc`, RealVNC, `wayvnc`) compitiendo por el mismo puerto,
 preexistente, no causado por nada de esta sesión. Un `sudo reboot` lo
 resolvió.)
+
+### Aclaración: "cámara real vía OpenCV/v4l2" ya no es un pendiente
+
+Las menciones viejas en esta bitácora de "reemplazar `getUserMedia` por
+el feed real de la webcam USB vía OpenCV/v4l2" asumían, sin confirmar,
+que el hardware final podía ser el módulo de cámara CSI de la Pi (que sí
+necesita un puente extra para aparecer como dispositivo estándar). Con
+el hardware confirmado como **webcam USB**, eso no aplica: `getUserMedia`
+en Linux ya habla con v4l2 por debajo para una webcam USB — no hay nada
+que reemplazar. Este punto queda cerrado, no es un pendiente real.
