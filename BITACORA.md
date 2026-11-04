@@ -421,3 +421,43 @@ precompilado, mucho más rápido). Probado con un webm sintético
 **Pendiente:** instalar `ffmpeg` en la Raspberry Pi real (`sudo apt
 install ffmpeg`) y confirmar el flujo completo ahí — todavía no probado
 fuera de esta Mac.
+
+### Deploy en la Raspberry Pi real (primera vez) + perf: fondos a JPEG
+
+Primer deploy del proyecto en la Pi real (`miniphotobooth`, Debian
+trixie/aarch64). `ffmpeg` ya estaba instalado (`apt` lo actualizó), con
+`libx264` habilitado — el fix server-side de la sección anterior quedó
+confirmado en el hardware final, no solo en la Mac.
+
+Al probar `index.html` desde el celular contra la Pi por Wi-Fi, la carga
+inicial iba muy lenta. Diagnóstico: `assets/img/` pesaba 16MB, con
+`bg-02.png` solo en 4.3MB — no por resolución (apenas 1152×2048), sino
+por formato: eran PNGs (sin pérdida) para fondos tipo foto/textura, donde
+PNG es la peor opción posible. Esto ya estaba anotado como pendiente
+desde antes, nunca se había hecho.
+
+Nota aparte: este test específico (celular por Wi-Fi) no refleja 1:1 el
+caso real — en el kiosco, Chromium corre en la propia Pi (`localhost`),
+sin el salto de red. Pero los 16MB los sigue teniendo que servir la SD
+card local igual, así que la optimización vale la pena de todas formas.
+
+**Fix:** re-encodeadas a JPEG con `sips` (quality 85-88) las que no
+tienen transparencia real (`bg-01`, `welcome-bg`, `booth-photo`,
+`photo-placeholder`) — confirmado con `sips -g hasAlpha` + inspección
+visual antes de tocar nada. `bg-02` también (el canal alfa estaba
+presente pero sin transparencia real usada). `bg-03` se probó pero
+quedó más pesado en JPEG que en PNG (88K → 220K) — es un patrón de
+pocos colores con bordes duros (estrellas), ahí JPEG pierde contra la
+compresión sin pérdida de PNG; se dejó como estaba.
+
+Resultado: `assets/img/` de 16MB a 9MB (-44%), sin pérdida visible.
+
+Como `bg-03` quedó en un formato distinto al resto, los 3 lugares de
+`js/app.js` que armaban la ruta a mano (`` `assets/img/${session.background}.png` ``)
+ya no podían asumir `.png` fijo — se agregó `BACKGROUND_EXT` (mapa
+id→extensión) y un helper `backgroundSrc(id)` que arma la ruta correcta
+según el fondo elegido. `index.html` (los 3 swatches, `welcome-bg`,
+`photo-placeholder`, `booth-photo`) actualizado a las nuevas rutas.
+
+**Pendiente:** seguir probando el flujo completo (Live Photo → QR →
+`.mp4`) ya en la Pi real, con la carga de `index.html` ahora más liviana.

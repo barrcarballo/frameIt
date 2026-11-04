@@ -33,6 +33,15 @@ const session = {
   liveUrls: [], // object URLs de las Live Photos, una por toma y en el mismo orden que capturedPhotos
 };
 
+// bg-01/bg-02 se re-encodaron a JPEG (compresión con pérdida, mucho más
+// liviana para fotos/texturas que PNG) — bg-03 es un patrón de pocos
+// colores con bordes duros donde JPEG pesa más que PNG, así que se queda
+// en PNG. Pensado para la Pi 3, que sirve estos assets desde una SD card.
+const BACKGROUND_EXT = { "bg-01": "jpg", "bg-02": "jpg", "bg-03": "png" };
+function backgroundSrc(id) {
+  return `assets/img/${id}.${BACKGROUND_EXT[id] || "png"}`;
+}
+
 function showScreen(name) {
   if (!SCREENS.includes(name)) {
     console.warn(`[FrameIt] Pantalla desconocida: "${name}"`);
@@ -409,7 +418,7 @@ function startCountdown(onDone, onTick) {
 function fillPrintStripPhotos(container) {
   const photos = session.capturedPhotos?.length
     ? session.capturedPhotos
-    : ["assets/img/booth-photo.png"];
+    : ["assets/img/booth-photo.jpg"];
 
   container.innerHTML = "";
   photos.forEach((src) => {
@@ -559,7 +568,7 @@ function startExportCountdown() {
 
 function renderExportPrint() {
   const card = document.getElementById("exportPrint");
-  card.style.backgroundImage = `url('assets/img/${session.background}.png')`;
+  card.style.backgroundImage = `url('${backgroundSrc(session.background)}')`;
   document.querySelectorAll("[data-export-photos]").forEach(fillPrintStripPhotos);
   applySingleModeSizing();
   startExportCountdown();
@@ -700,7 +709,7 @@ async function composeFinalImageBlob() {
   if (!photos?.length) return null;
 
   const [bgImg, logoImg, ...photoImgs] = await Promise.all([
-    loadImage(`assets/img/${session.background}.png`),
+    loadImage(backgroundSrc(session.background)),
     loadImage("assets/logo/isologo-light.svg"),
     ...photos.map(loadImage),
   ]);
@@ -747,7 +756,7 @@ async function composeFinalVideoBlob() {
   if (typeof MediaRecorder === "undefined") return null;
 
   const [bgImg, logoImg, frameImg] = await Promise.all([
-    loadImage(`assets/img/${session.background}.png`),
+    loadImage(backgroundSrc(session.background)),
     loadImage("assets/logo/isologo-light.svg"),
     session.frame ? preloadSquareFrame(session.frame) : Promise.resolve(null),
   ]);

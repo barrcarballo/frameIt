@@ -12,7 +12,7 @@
     <!-- 01 — Bienvenida -->
     <section class="screen screen--welcome is-active" data-screen="welcome" id="welcomeScreen">
       <div class="bg-photo-wrap">
-        <img class="bg-photo" src="assets/img/welcome-bg.png" alt="" />
+        <img class="bg-photo" src="assets/img/welcome-bg.jpg" alt="" />
         <div class="bg-tint"></div>
       </div>
       <div class="welcome-content">
@@ -34,15 +34,15 @@
         <button class="mode-card" type="button" data-mode="strip">
           <div class="photo-stack photo-stack--strip">
             <div class="polaroid polaroid--strip polaroid--strip-2">
-              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
-              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
-              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.jpg" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.jpg" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.jpg" alt="" /></div>
               <img class="polaroid-watermark" src="assets/logo/isologo.svg" alt="" />
             </div>
             <div class="polaroid polaroid--strip polaroid--strip-1">
-              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
-              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
-              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.jpg" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.jpg" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.jpg" alt="" /></div>
               <img class="polaroid-watermark" src="assets/logo/isologo.svg" alt="" />
             </div>
           </div>
@@ -52,15 +52,15 @@
         <button class="mode-card" type="button" data-mode="single">
           <div class="photo-stack photo-stack--single">
             <div class="polaroid polaroid--single polaroid--single-3">
-              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.jpg" alt="" /></div>
               <img class="polaroid-watermark" src="assets/logo/isologo.svg" alt="" />
             </div>
             <div class="polaroid polaroid--single polaroid--single-2">
-              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.jpg" alt="" /></div>
               <img class="polaroid-watermark" src="assets/logo/isologo.svg" alt="" />
             </div>
             <div class="polaroid polaroid--single polaroid--single-1">
-              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.png" alt="" /></div>
+              <div class="polaroid-cell"><img src="assets/img/photo-placeholder.jpg" alt="" /></div>
               <img class="polaroid-watermark" src="assets/logo/isologo.svg" alt="" />
             </div>
           </div>
@@ -82,7 +82,7 @@
         <!-- MVP: webcam del navegador (getUserMedia). En la Pi esto se reemplaza
              por el feed real de la cámara USB vía OpenCV/v4l2 desde el backend. -->
         <video class="camera-photo" id="cameraFeed" autoplay muted playsinline></video>
-        <img class="camera-photo" id="cameraFallback" src="assets/img/booth-photo.png" alt="" hidden />
+        <img class="camera-photo" id="cameraFallback" src="assets/img/booth-photo.jpg" alt="" hidden />
         <img class="camera-frame-overlay" id="frameOverlay" src="assets/frames/frame-01.png" alt="" />
 
         <button class="capture-btn" type="button" aria-label="Continuar a la captura">
@@ -163,7 +163,7 @@
       <div class="camera-frame">
         <!-- MVP: webcam del navegador. En la Pi, feed real vía OpenCV/v4l2. -->
         <video class="camera-photo" id="captureFeed" autoplay muted playsinline></video>
-        <img class="camera-photo" id="captureFallback" src="assets/img/booth-photo.png" alt="" hidden />
+        <img class="camera-photo" id="captureFallback" src="assets/img/booth-photo.jpg" alt="" hidden />
         <img class="camera-frame-overlay" id="captureFrameOverlay" src="assets/frames/frame-01.png" alt="" />
 
         <!-- Guía de crop vertical: recorte centrado ~106:97 (mismo ratio que
@@ -179,12 +179,12 @@
       </div>
 
       <div class="frame-thumbs frame-thumbs--readonly">
-        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-01.png" alt="" /></div>
-        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-02.png" alt="" /></div>
-        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-03.png" alt="" /></div>
-        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-04.png" alt="" /></div>
-        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-05.png" alt="" /></div>
-        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.png" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-06.png" alt="" /></div>
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.jpg" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-01.png" alt="" /></div>
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.jpg" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-02.png" alt="" /></div>
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.jpg" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-03.png" alt="" /></div>
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.jpg" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-04.png" alt="" /></div>
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.jpg" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-05.png" alt="" /></div>
+        <div class="frame-thumb"><img class="frame-thumb-photo" src="assets/img/booth-photo.jpg" alt="" /><img class="frame-thumb-overlay" src="assets/frames/frame-06.png" alt="" /></div>
       </div>
     </section>
 
@@ -238,7 +238,7 @@
       <p class="bg-subheading">Estás a un paso de obtener tu foto</p>
 
       <div class="bg-options">
-        <button class="bg-swatch is-selected" type="button" data-bg="bg-01" style="background-image: url('assets/img/bg-01.png')">
+        <button class="bg-swatch is-selected" type="button" data-bg="bg-01" style="background-image: url('assets/img/bg-01.jpg')">
           <div class="swatch-strip swatch-strip--back">
             <div class="swatch-strip__mat"><div class="print-strip__photos" data-swatch-photos></div></div>
           </div>
@@ -247,7 +247,7 @@
           </div>
           <div class="bg-swatch__footer"><img src="assets/logo/isologo-light.svg" alt="Frame it" /></div>
         </button>
-        <button class="bg-swatch" type="button" data-bg="bg-02" style="background-image: url('assets/img/bg-02.png')">
+        <button class="bg-swatch" type="button" data-bg="bg-02" style="background-image: url('assets/img/bg-02.jpg')">
           <div class="swatch-strip swatch-strip--back">
             <div class="swatch-strip__mat"><div class="print-strip__photos" data-swatch-photos></div></div>
           </div>
