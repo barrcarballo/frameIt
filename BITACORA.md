@@ -461,3 +461,25 @@ según el fondo elegido. `index.html` (los 3 swatches, `welcome-bg`,
 
 **Pendiente:** seguir probando el flujo completo (Live Photo → QR →
 `.mp4`) ya en la Pi real, con la carga de `index.html` ahora más liviana.
+
+**Update:** la compresión de imágenes sola no alcanzó — `index.html`
+seguía "tardando mucho" en cargar desde el celular contra la Pi. Causa
+real: `server.py` usaba `socketserver.TCPServer` (una sola conexión a la
+vez, sin threads) + HTTP/1.0 por default (sin keep-alive) — con ~70
+assets propios en `index.html`, cada uno abría su propia conexión TCP en
+fila. Fix: `http.server.ThreadingHTTPServer` (stdlib, Python 3.7+, no
+suma dependencias) + `protocol_version = "HTTP/1.1"` en el handler.
+Validado localmente con `curl` (segunda request reusa conexión,
+`time_connect: 0`) y confirmado en la Pi real: carga rápida.
+
+Trampas no obvias en el deploy a la Pi real (quedan documentadas para la
+próxima vez):
+- El hostname `.local` (mDNS/Bonjour) resultó inestable por Wi-Fi —
+  cuando falla conviene probar directo con la IP (`hostname -I` en la
+  Pi).
+- iCloud Private Relay (iOS) muestra un cartel "This Connection Is Not
+  Private" al entrar a un `http://` plano — no es un error real, hay que
+  tocar "Show IP Address" para continuar (o desactivar Private Relay
+  para esa red en Ajustes).
+- Safari interpreta una IP pelada sin protocolo como intento de HTTPS —
+  hay que escribir la URL completa con `http://` y el puerto (`:8080`).
