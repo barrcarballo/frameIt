@@ -34,7 +34,6 @@ funcionando, solo más lento (conversión en el celular de quien comparte).
 """
 
 import http.server
-import socketserver
 import pathlib
 import shutil
 import subprocess
@@ -66,6 +65,11 @@ def convert_webm_to_mp4(webm_path, mp4_path):
 
 
 class FrameItHandler(http.server.SimpleHTTPRequestHandler):
+    # HTTP/1.1 + keep-alive: index.html pide ~70 assets propios, con
+    # HTTP/1.0 (el default) cada uno abre una conexión TCP nueva — en la
+    # Pi, por Wi-Fi, eso pesaba mucho más que el tamaño de los archivos.
+    protocol_version = "HTTP/1.1"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
@@ -149,7 +153,10 @@ if __name__ == "__main__":
         print("          celular de quien comparte (más lento). Instalar con: brew install ffmpeg")
         print("          (Mac) o sudo apt install ffmpeg (Raspberry Pi / Linux).")
 
-    with socketserver.TCPServer(("", PORT), FrameItHandler) as httpd:
+    # ThreadingHTTPServer (no TCPServer a secas): atiende varias conexiones
+    # en paralelo — con una sola a la vez, el navegador pedía los ~70
+    # assets de index.html en fila, uno por uno.
+    with http.server.ThreadingHTTPServer(("", PORT), FrameItHandler) as httpd:
         print(f"FrameIt server corriendo en http://localhost:{PORT}")
         print(f"Fotos/videos subidos quedan en: {UPLOADS_DIR}")
         httpd.serve_forever()
