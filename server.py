@@ -39,7 +39,9 @@ funcionando, solo más lento (conversión en el celular de quien comparte).
 
 import http.server
 import json
+import os
 import pathlib
+import re
 import shutil
 import socket
 import subprocess
@@ -95,6 +97,77 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
+
+    def send_head(self):
+        # SimpleHTTPRequestHandler ignora el header Range y siempre manda
+        # el archivo entero — Safari (y la mayoría de los navegadores) lo
+        # necesita para reproducir <video>: pide el archivo en pedazos, no
+        # de una sola vez como una descarga. Sin esto, el Live se descarga
+        # bien pero no se ve en la preview de /galeria.html.
+        range_header = self.headers.get("Range")
+        if not range_header:
+            return super().send_head()
+
+        path = self.translate_path(self.path)
+        if not os.path.isfile(path):
+            return super().send_head()
+
+        return self._send_range(path, range_header)
+
+    def _reject_range(self, size):
+        # Bajo HTTP/1.1 con keep-alive, una respuesta sin Content-Length (ni
+        # "Connection: close") deja al cliente esperando para siempre — acá
+        # mandaba el 416 sin ese header y colgaba cualquier request mal
+        # formado (confirmado probando "bytes=-500" localmente).
+        self.send_response(416)
+        self.send_header("Content-Range", f"bytes */{size}")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return None
+
+    def _send_range(self, path, range_header):
+        size = os.path.getsize(path)
+        match = re.match(r"bytes=(\d*)-(\d*)", range_header)
+        if not match or not (match.group(1) or match.group(2)):
+            return self._reject_range(size)
+
+        start_str, end_str = match.groups()
+        if start_str == "":
+            # "bytes=-500" (sufijo RFC 7233): los últimos 500 bytes, NO
+            # "hasta el byte 500" — confundir esto fue el bug original.
+            start = max(size - int(end_str), 0)
+            end = size - 1
+        else:
+            start = int(start_str)
+            end = int(end_str) if end_str else size - 1
+            end = min(end, size - 1)
+        if start > end or start < 0:
+            return self._reject_range(size)
+
+        length = end - start + 1
+        self.send_response(206)
+        self.send_header("Content-type", self.guess_type(path))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Content-Length", str(length))
+        self.end_headers()
+        if self.command == "HEAD":
+            return None
+        # Se escribe el cuerpo acá mismo y se devuelve None (en vez de un
+        # file object) — do_GET()/copyfile() de la clase base no saben de
+        # rangos y copiarían hasta el final real del archivo, no hasta
+        # `end`, rompiendo el Content-Length ya mandado.
+        with open(path, "rb") as f:
+            f.seek(start)
+            remaining = length
+            chunk_size = 64 * 1024
+            while remaining > 0:
+                chunk = f.read(min(chunk_size, remaining))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                remaining -= len(chunk)
+        return None
 
     def end_headers(self):
         # Solo en /galeria.html: habilita el aislamiento cross-origin que
