@@ -41,8 +41,8 @@ SSL_KEY = ROOT / "ssl" / "key.pem"
 WEBRTC_PORT = 8444
 
 VIDEO_DEVICE = "/dev/video0"
-VIDEO_SIZE = "960x720"  # 1280x720 seguía casi saturando el CPU (281%)
-VIDEO_FRAMERATE = "24"  # 30 saturaba la Pi (316% CPU, delay por backlog)
+VIDEO_SIZE = "1280x720"  # prueba: más resolución, fps bajo para compensar
+VIDEO_FRAMERATE = "18"
 
 # Un solo viewer esperado (el kiosco) — se guarda la conexión activa para
 # cerrarla antes de abrir una nueva. /dev/video0 es de acceso exclusivo:
