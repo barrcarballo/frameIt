@@ -586,3 +586,77 @@ necesita un puente extra para aparecer como dispositivo estándar). Con
 el hardware confirmado como **webcam USB**, eso no aplica: `getUserMedia`
 en Linux ya habla con v4l2 por debajo para una webcam USB — no hay nada
 que reemplazar. Este punto queda cerrado, no es un pendiente real.
+
+### Fix de raíz al lag: certificado HTTPS propio, Safari directo sin VNC
+
+Toda la noche del 2026-11-03/04 se intentó mitigar el lag táctil/de
+cámara sentido por VNC (compresión, resoluciones, cable Ethernet) sin
+éxito real — porque la causa de fondo nunca fue de red ni de
+configuración de `x11vnc`: era que la Pi tenía que renderizar Chromium
+(cámara + filtros) Y codificar video para VNC al mismo tiempo, dos
+tareas de CPU compitiendo por los mismos núcleos.
+
+**La solución real:** sacar el VNC/Chromium-local de la ecuación por
+completo. La única razón por la que existía ese armado (Pi headless +
+Chromium local + VNC al iPad) era que `getUserMedia` exige "contexto
+seguro" (HTTPS o `localhost`), y el iPad entrando directo por HTTP a la
+IP de la Pi no calificaba.
+
+Implementado:
+- `server.py` ahora levanta un segundo listener HTTPS (puerto 8443, ver
+  `start_https_server()`), en paralelo al HTTP de siempre (puerto 8080,
+  sin cambios — los invitados por QR/`/galeria.html` nunca lo tocan).
+- Certificado propio generado a mano con `openssl` (SAN con el hostname
+  `miniphotobooth.local`, `localhost`, la IP LAN y `127.0.0.1`), guardado
+  en `ssl/cert.pem` + `ssl/key.pem` (gitignored — es por dispositivo/Pi,
+  no se versiona).
+- `GET /cert.pem` sirve el certificado (nunca la clave — `ssl/key.pem`
+  está bloqueado explícitamente tanto en `do_GET` como en `send_head`,
+  para que ni un `HEAD` confirme que existe) con
+  `Content-Type: application/x-x509-ca-cert`, el único MIME type que
+  hace que iOS lo reconozca como perfil instalable desde Safari.
+- En la iPad del kiosco (device fijo y propio, NO un invitado random):
+  se instaló el certificado como perfil de confianza (`Ajustes → General
+  → VPN y gestión de dispositivos` + `Ajustes → General → Información →
+  Configuración de confianza de certificados`, activando el toggle).
+  Esto es seguro de hacer en un dispositivo propio y dedicado — la
+  decisión de NO hacer esto para invitados (ver sección anterior) seguía
+  aplicando solo a ellos.
+
+**Validado en la iPad Pro 12.9" (3ra gen)**: `https://<ip-pi>:8443/`
+carga sin warning de certificado, `getUserMedia` funciona (contexto
+seguro real, sin VNC), y la usuaria confirmó "anda sin lag" — tocar
+botones y la cámara en vivo responden normal, sin el retraso que había
+por VNC.
+
+**Gotchas encontrados armando esto:**
+- `Content-Type: application/x-pem-file` NO alcanza para que iOS ofrezca
+  "Instalar perfil" — hace falta específicamente
+  `application/x-x509-ca-cert`.
+- El puerto 8443 solo entiende HTTPS — una URL con `http://` (aunque sea
+  por autocompletado de Safari metiendo una sugerencia vieja) tira un
+  error de protocolo confuso ("se solicitó una URL HTTP aunque solo se
+  admite HTTPS"). El autocompletado de Safari fue la causa de varios
+  falsos negativos durante el debug — escanear un QR generado al vuelo
+  (con el mismo `js/vendor/qrcode.min.js` del proyecto) evitó el problema
+  por completo.
+- Al correr `python3 server.py | tee archivo.log` sin `-u`, Python
+  bufferea la salida por bloque en vez de por línea (stdout no es una
+  terminal) — parece que el programa no imprime nada, pero solo está
+  retenido. Usar `python3 -u` cuando se redirige/tubea la salida.
+- `ThreadingHTTPServer` ya bindea y escucha en el constructor; envolver
+  `httpd.socket` con `ssl.SSLContext.wrap_socket(..., server_side=True)`
+  después de construir el server anda bien igual — el socket subyacente
+  sigue siendo el mismo file descriptor, confirmado con
+  `ss -tlnp` mostrándolo escuchando en 8443.
+
+**Pendiente para consolidar esto:**
+- Si la IP de la Pi cambia (DHCP), el certificado deja de ser válido
+  para esa IP — usar `https://miniphotobooth.local:8443/` (el hostname
+  SÍ está en el SAN) en vez de la IP pelada evita este problema, o fijar
+  una reserva DHCP para la Pi en el router.
+- Con esto funcionando, ya no hace falta Chromium corriendo en la Pi ni
+  VNC para el USO REAL del kiosco (la iPad entra directo) — VNC queda
+  solo como herramienta de administración/debug, no como parte del flujo
+  normal. Falta decidir si conviene "Agregar a pantalla de inicio" en la
+  iPad para que abra sin barra de Safari (pantalla completa real).
