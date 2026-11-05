@@ -29,6 +29,16 @@ Serves the static frontend (same as `python3 -m http.server`) and adds:
   fallback de arriba). Si el navegador no soporta ese aislamiento, la
   página cae sola al modo simple (no rompe nada, ver self.crossOriginIsolated
   en galeria.html).
+- HTTPS en paralelo (puerto 8443, ver start_https_server): solo para que
+  la propia iPad del kiosco entre por Safari directo a index.html con
+  contexto seguro real (getUserMedia lo exige), sin pasar por VNC/Chromium
+  local. Usa un certificado propio por dispositivo en ssl/cert.pem +
+  ssl/key.pem (gitignored, generados a mano con openssl, uno por Pi — ver
+  BITACORA.md). Si no existe el certificado, este listener simplemente no
+  arranca; el HTTP de siempre sigue andando igual. GET /cert.pem sirve el
+  certificado (no la clave) para instalarlo como perfil de confianza en
+  esa iPad específica — los invitados (QR, /galeria.html) nunca lo tocan,
+  siguen entrando por HTTP plano como siempre.
 
 Stdlib only — no Flask/FastAPI, consistent with the "vanilla, sin frameworks
 pesados" approach of the rest of the project. On the Raspberry Pi this runs
@@ -44,12 +54,23 @@ import pathlib
 import re
 import shutil
 import socket
+import ssl
 import subprocess
+import threading
 
 PORT = 8080
+# Servidor HTTPS en paralelo, solo para que la propia iPad del kiosco entre
+# por Safari directo (sin VNC) con contexto seguro real — ver SSL_CERT/
+# SSL_KEY más abajo. Los invitados (QR, /galeria.html) siguen por HTTP
+# normal en PORT, sin cambios.
+HTTPS_PORT = 8443
 ROOT = pathlib.Path(__file__).resolve().parent
 UPLOADS_DIR = ROOT / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
+
+SSL_DIR = ROOT / "ssl"
+SSL_CERT = SSL_DIR / "cert.pem"
+SSL_KEY = SSL_DIR / "key.pem"
 
 # Debe coincidir con EXPORT_VIDEO_FPS en js/app.js — ver el comentario en
 # convert_webm_to_mp4 sobre por qué forzar esto importa.
@@ -113,6 +134,14 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
     def send_head(self):
+        # do_HEAD() de la clase base llama a send_head() directo, sin pasar
+        # por do_GET() — así que la protección de /ssl/ (clave privada) de
+        # ahí no alcanza acá. Se repite el chequeo para que ni un HEAD
+        # confirme que el archivo existe.
+        if self.path.split("?", 1)[0].startswith("/ssl/"):
+            self.send_error(404, "Not found")
+            return None
+
         # SimpleHTTPRequestHandler ignora el header Range y siempre manda
         # el archivo entero — Safari (y la mayoría de los navegadores) lo
         # necesita para reproducir <video>: pide el archivo en pedazos, no
@@ -197,10 +226,26 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self):
-        if self.path == "/api/host-info":
+        path = self.path.split("?", 1)[0]
+        if path == "/api/host-info":
             self._handle_host_info()
+        elif path == "/cert.pem":
+            # Única forma de bajar el certificado — la carpeta ssl/ (con
+            # la clave privada adentro) está bloqueada en send_head().
+            self._send_file(SSL_CERT, "application/x-pem-file")
         else:
             super().do_GET()
+
+    def _send_file(self, path, content_type):
+        if not path.is_file():
+            self.send_error(404, "Not found")
+            return
+        data = path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_POST(self):
         if self.path == "/api/upload-photo":
@@ -275,11 +320,34 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
             super().log_message(format, *args)
 
 
+def start_https_server():
+    # Servidor HTTPS aparte, en su propio thread — así la iPad del kiosco
+    # puede entrar por Safari directo con contexto seguro real (sin esto,
+    # getUserMedia no funciona fuera de localhost), sin tener que correr
+    # Chromium en la Pi y mandar la pantalla por VNC. Si no hay certificado
+    # generado (ver ssl/cert.pem, ssl/key.pem — no se versionan en git, son
+    # por dispositivo), se omite en silencio: el HTTP de siempre sigue
+    # andando igual para desarrollo local / invitados.
+    if not (SSL_CERT.is_file() and SSL_KEY.is_file()):
+        print("[FrameIt] Sin ssl/cert.pem — HTTPS deshabilitado (solo HTTP).")
+        return
+
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(certfile=str(SSL_CERT), keyfile=str(SSL_KEY))
+
+    httpd = http.server.ThreadingHTTPServer(("", HTTPS_PORT), FrameItHandler)
+    httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+    print(f"FrameIt HTTPS corriendo en https://{LAN_IP}:{HTTPS_PORT} (certificado propio)")
+    httpd.serve_forever()
+
+
 if __name__ == "__main__":
     if not FFMPEG_BIN:
         print("[FrameIt] AVISO: no se encontró ffmpeg en el PATH — el Live se va a convertir en el")
         print("          celular de quien comparte (más lento). Instalar con: brew install ffmpeg")
         print("          (Mac) o sudo apt install ffmpeg (Raspberry Pi / Linux).")
+
+    threading.Thread(target=start_https_server, daemon=True).start()
 
     # ThreadingHTTPServer (no TCPServer a secas): atiende varias conexiones
     # en paralelo — con una sola a la vez, el navegador pedía los ~70
