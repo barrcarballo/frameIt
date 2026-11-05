@@ -42,7 +42,7 @@ WEBRTC_PORT = 8444
 
 VIDEO_DEVICE = "/dev/video0"
 VIDEO_SIZE = "1280x720"
-VIDEO_FRAMERATE = "30"
+VIDEO_FRAMERATE = "24"  # 30 saturaba la Pi (316% CPU, delay por backlog)
 
 # Un solo viewer esperado (el kiosco) — se guarda la conexión activa para
 # cerrarla antes de abrir una nueva. /dev/video0 es de acceso exclusivo:
