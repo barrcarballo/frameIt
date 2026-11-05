@@ -660,3 +660,65 @@ por VNC.
   solo como herramienta de administración/debug, no como parte del flujo
   normal. Falta decidir si conviene "Agregar a pantalla de inicio" en la
   iPad para que abra sin barra de Safari (pantalla completa real).
+
+### Webcam USB vía relay WebRTC (HTTPS directo rompía la cámara)
+
+Al mover el kiosco a Safari directo (sección anterior), apareció un
+problema de fondo que no se había anticipado: `getUserMedia` SIEMPRE usa
+las cámaras del dispositivo donde corre el navegador. Antes (VNC),
+Chromium corría EN la Pi y veía la webcam USB. Ahora que Safari corre en
+la iPad, `getUserMedia` ahí solo ve las cámaras DE LA IPAD — no hay forma
+de que una Web API acceda a un dispositivo USB enchufado en otra máquina
+de la red. Confirmado en la práctica: la app empezó a usar la cámara
+propia del iPad en vez de la webcam de la cabina.
+
+**Solución:** `webcam_relay.py` (nuevo, proceso y puerto aparte de
+`server.py`) — un servidor WebRTC que abre la webcam vía v4l2 en la Pi y
+la transmite en vivo. `js/app.js` (`getCameraStream()`) intenta conectar
+ahí primero (`RTCPeerConnection`, señalización por `POST /offer` en
+HTTPS, sin STUN/TURN porque los dos dispositivos están en la misma LAN);
+si falla, cae a `getUserMedia` normal (así sigue sirviendo para
+desarrollo en la Mac sin el relay corriendo). El resto de la app no se
+entera de la diferencia — ambos caminos terminan en un `MediaStream`
+normal.
+
+Usa `aiortc` + `aiohttp` — primera vez que el proyecto rompe la regla de
+"solo stdlib" (ver docstring de `webcam_relay.py`), justificado porque
+reimplementar WebRTC a mano no es viable. Instalado en un venv aparte
+(`.venv-webrtc/`, gitignored) — en la Pi (ARM64/aarch64), `pip install
+aiortc aiohttp` bajó wheels precompilados sin compilar nada nativo
+(gracias a piwheels.org + manylinux), mucho más rápido de lo que se temía
+después de la experiencia con `ffmpeg` compilando Python desde cero.
+
+**Ajuste de calidad/rendimiento (requirió tres iteraciones, con
+`v4l2-ctl --list-formats-ext` y `top` como herramientas de diagnóstico):**
+1. Sin especificar `input_format`, v4l2 abre en YUYV (crudo) por
+   default — y esta webcam en YUYV a 1280x720 solo soporta hasta 10fps
+   (confirmado con `v4l2-ctl --list-formats-ext -d /dev/video0`), aunque
+   se pidieran 30. Fix: `input_format: "mjpeg"` explícito (la cámara
+   comprime en MJPG a nivel de hardware, soporta 1280x720 a 30fps reales
+   en ese formato).
+2. A 1280x720/30fps el proceso de Python (decodificar MJPG + recodificar
+   a VP8 para WebRTC) usaba 316% de CPU (de 400% disponibles en los 4
+   núcleos) — saturaba la Pi y generaba delay por backlog. Bajar a 24fps
+   ayudó poco (281%, delay seguía notándose). Bajar la resolución a
+   960x720 fue la palanca real: 182% de CPU, fluido de verdad — el costo
+   de codificar escala con la cantidad de píxeles, no tanto con el fps.
+3. Pedido de más resolución sin perder fluidez: la cámara no tiene un
+   tamaño intermedio entre 960x720 y 1280x720 (tamaños discretos de UVC,
+   no continuos). Se probó 1280x720 a 18fps como compromiso — quedó
+   fluido en la práctica (confirmado por la usuaria), aunque la medición
+   de CPU dio más alta de lo esperado (309%, más que a 24fps) — una sola
+   lectura de `top -bn1` no es muy confiable, no se investigó más a
+   fondo dado que el resultado subjetivo ya era bueno.
+
+**Configuración final:** `VIDEO_SIZE = "1280x720"`, `VIDEO_FRAMERATE =
+"18"`, `input_format: "mjpeg"` — en `webcam_relay.py`.
+
+**Pendiente:** correr `webcam_relay.py` junto con `server.py` de forma
+más prolija (hoy se lanzan a mano en terminales SSH separadas) — evaluar
+un `systemd` service o un script que levante ambos. También falta probar
+qué tan estable es el relay en una sesión larga (el código actual cierra
+la conexión anterior al llegar una nueva, pensado para un solo viewer a
+la vez — no probado con reconexiones repetidas tipo recargar la página
+muchas veces seguidas).
