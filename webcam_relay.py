@@ -73,7 +73,16 @@ async def offer(request):
     player = MediaPlayer(
         VIDEO_DEVICE,
         format="v4l2",
-        options={"video_size": VIDEO_SIZE, "framerate": VIDEO_FRAMERATE},
+        # Sin "input_format" explícito, v4l2 abre la webcam en YUYV (crudo)
+        # por default — y a 1280x720 esa webcam solo soporta hasta 10fps en
+        # YUYV (confirmado con v4l2-ctl --list-formats-ext), por eso la
+        # imagen se veía mal/entrecortada. En MJPG (comprimido en la propia
+        # cámara) sí soporta 1280x720 a 30fps completos.
+        options={
+            "input_format": "mjpeg",
+            "video_size": VIDEO_SIZE,
+            "framerate": VIDEO_FRAMERATE,
+        },
     )
     pc = RTCPeerConnection()
     _active_pc = pc
