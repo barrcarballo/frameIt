@@ -105,18 +105,66 @@ function showCameraFallback() {
   });
 }
 
-async function initCamera() {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    console.warn("[FrameIt] getUserMedia no disponible, uso foto de referencia.");
-    showCameraFallback();
-    return;
-  }
+// La webcam USB está en la Pi, no en el dispositivo que corre el
+// navegador (la iPad, por HTTPS directo sin VNC — ver BITACORA.md).
+// getUserMedia solo puede ver cámaras LOCALES del dispositivo, nunca una
+// USB enchufada en otra máquina de la red — por eso primero se intenta
+// el relay por WebRTC (webcam_relay.py, puerto 8444) que retransmite la
+// webcam de la Pi en vivo. Si no está disponible (ej. desarrollo en la
+// Mac sin el relay corriendo), cae a getUserMedia normal como antes.
+function waitForIceGathering(pc) {
+  if (pc.iceGatheringState === "complete") return Promise.resolve();
+  return new Promise((resolve) => {
+    function check() {
+      if (pc.iceGatheringState === "complete") {
+        pc.removeEventListener("icegatheringstatechange", check);
+        resolve();
+      }
+    }
+    pc.addEventListener("icegatheringstatechange", check);
+  });
+}
 
+async function getWebcamViaRelay() {
+  if (typeof RTCPeerConnection === "undefined") throw new Error("WebRTC no disponible");
+
+  const pc = new RTCPeerConnection();
+  pc.addTransceiver("video", { direction: "recvonly" });
+
+  const trackPromise = new Promise((resolve, reject) => {
+    pc.ontrack = (event) => resolve(event.streams[0]);
+    setTimeout(() => reject(new Error("timeout esperando el video del relay")), 8000);
+  });
+
+  const offerDesc = await pc.createOffer();
+  await pc.setLocalDescription(offerDesc);
+  await waitForIceGathering(pc);
+
+  const res = await fetch(`https://${location.hostname}:8444/offer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const answer = await res.json();
+  await pc.setRemoteDescription(answer);
+
+  return trackPromise;
+}
+
+async function getCameraStream() {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user" },
-      audio: false,
-    });
+    return await getWebcamViaRelay();
+  } catch (err) {
+    console.warn("[FrameIt] Relay de la webcam no disponible, pruebo getUserMedia local:", err);
+    if (!navigator.mediaDevices?.getUserMedia) throw err;
+    return navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+  }
+}
+
+async function initCamera() {
+  try {
+    const stream = await getCameraStream();
     cameraStream = stream; // guardado global: lo necesita la Live Photo (MediaRecorder)
     CAMERA_VIDEO_IDS.forEach((id) => {
       document.getElementById(id).srcObject = stream;
