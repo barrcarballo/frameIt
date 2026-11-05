@@ -232,7 +232,10 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
         elif path == "/cert.pem":
             # Única forma de bajar el certificado — la carpeta ssl/ (con
             # la clave privada adentro) está bloqueada en send_head().
-            self._send_file(SSL_CERT, "application/x-pem-file")
+            # iOS/Safari solo ofrece "Instalar perfil" para este MIME type
+            # específico — con "application/x-pem-file" lo trata como un
+            # archivo cualquiera en vez de un certificado instalable.
+            self._send_file(SSL_CERT, "application/x-x509-ca-cert")
         else:
             super().do_GET()
 
