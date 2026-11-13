@@ -722,3 +722,48 @@ qué tan estable es el relay en una sesión larga (el código actual cierra
 la conexión anterior al llegar una nueva, pensado para un solo viewer a
 la vez — no probado con reconexiones repetidas tipo recargar la página
 muchas veces seguidas).
+
+### QR sin depender del Wi-Fi de los invitados (modo nube, branch aparte)
+
+Surgió al preparar un uso fuera de casa: si la Pi genera su propia red
+Wi-Fi aislada (para no depender del Wi-Fi del lugar), los invitados
+tendrían que conectarse a ESA red para poder escanear el QR — un paso
+extra que hoy no existe, y con riesgo de que iOS desconecte solo al
+detectar "Wi-Fi sin internet".
+
+**Fix:** `UPLOAD_TO_CLOUD = True` en `server.py` — la foto y el Live (ya
+convertido a MP4 si hay `ffmpeg`) se reenvían al deploy de Vercel de este
+mismo proyecto (`upload_to_vercel()`, con `urllib` de la stdlib, sin
+librerías nuevas) en vez de (o además de) guardarse solo local. Se suben
+a Vercel Blob a través de los endpoints que YA existían
+(`api/upload-photo.js`, `api/upload-video.js`) — no hizo falta integrar
+el SDK de Blob en Python. `/api/host-info` ahora devuelve el origin de
+Vercel en vez de la IP local cuando el modo nube está activo, así el QR
+apunta a `/galeria.html` público — cualquier invitado lo abre con sus
+propios datos, sin estar en ninguna red compartida con la Pi. La Pi sí
+necesita su propia salida real a internet para poder subir los archivos
+(no es "cero red", es dejar de depender de compartir red con los
+invitados). Si la subida falla (sin internet, Vercel caído), cae sola a
+la URL local de siempre — mismo criterio de "nunca romper el flujo" que
+el resto del proyecto.
+
+**Bug encontrado y arreglado de paso:** `api/upload-video.js` tenía el
+nombre de archivo y el `Content-Type` fijos en webm — si la Pi le manda
+un MP4 ya convertido, quedaba mal etiquetado (`galeria.html` decide si
+hace falta re-convertir mirando la extensión de la URL, así que un MP4
+guardado como `.webm` se re-convertía al pedo en el celular de quien
+comparte). Ahora la extensión y el `Content-Type` en Blob dependen del
+`Content-Type` real de la subida.
+
+**Validado en un deploy preview de Vercel** (branch `feature/qr-cloud-upload`,
+protección SSO desactivada temporalmente para poder probar sin sesión de
+navegador): `server.py` local → sube foto y video (convertido a MP4) →
+Vercel Blob devuelve URLs con la extensión correcta → `/api/host-info`
+devuelve el origin de Vercel. Probado también el fallback: con una URL
+de Vercel inválida a propósito, las subidas caen a la URL local sin
+errores.
+
+**Pendiente:** mergear esta branch a `main` cuando se confirme que
+funciona bien en un uso real (hoy solo probado desde la Mac, local,
+contra el preview — falta probarlo desde la Pi real con un invitado de
+verdad escaneando desde datos móviles).
