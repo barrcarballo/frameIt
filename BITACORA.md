@@ -763,7 +763,6 @@ devuelve el origin de Vercel. Probado también el fallback: con una URL
 de Vercel inválida a propósito, las subidas caen a la URL local sin
 errores.
 
-**Pendiente:** mergear esta branch a `main` cuando se confirme que
-funciona bien en un uso real (hoy solo probado desde la Mac, local,
-contra el preview — falta probarlo desde la Pi real con un invitado de
-verdad escaneando desde datos móviles).
+**Confirmado en uso real** (demo fuera de casa, invitados escaneando
+desde sus propios datos móviles) y mergeado a `main` — branch
+`feature/qr-cloud-upload` borrada.
