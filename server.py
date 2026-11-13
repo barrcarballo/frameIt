@@ -18,6 +18,14 @@ Serves the static frontend (same as `python3 -m http.server`) and adds:
   `ffmpeg` o la conversión falla, cae al webm crudo: /galeria.html detecta
   la extensión y convierte con ffmpeg.wasm en el navegador como antes —
   más lento, pero nunca rompe el flujo.
+- UPLOAD_TO_CLOUD (más abajo): si está en True, tanto la foto como el Live
+  (ya convertido) se reenvían además al deploy de Vercel de este mismo
+  proyecto (api/upload-photo.js, api/upload-video.js — Vercel Blob), y
+  /api/host-info apunta el QR a ese /galeria.html público en vez de a la
+  IP local de la Pi. Así el invitado ve su foto con sus propios datos
+  móviles, sin estar en la red de la Pi (la Pi sí necesita su propia
+  salida a internet para poder subirlas). Si la subida falla, cae sola a
+  la URL local de siempre — nunca rompe el flujo.
 - /galeria.html (archivo estático en la raíz, servido por el handler
   default de abajo, igual que en el deploy de Vercel): toma ?photo=...
   y, si está, &video=... para mostrar el toggle Foto/Live con el botón de
@@ -57,6 +65,8 @@ import socket
 import ssl
 import subprocess
 import threading
+import urllib.error
+import urllib.request
 
 PORT = 8080
 # Servidor HTTPS en paralelo, solo para que la propia iPad del kiosco entre
@@ -71,6 +81,31 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 SSL_DIR = ROOT / "ssl"
 SSL_CERT = SSL_DIR / "cert.pem"
 SSL_KEY = SSL_DIR / "key.pem"
+
+# Modo "subir a la nube": en vez de depender de que el invitado esté en la
+# misma red que la Pi para ver su foto/Live (el QR apuntaba a la IP local),
+# la foto y el Live (ya convertido a MP4 si hay ffmpeg) se reenvían al
+# deploy de Vercel de este mismo proyecto — que los guarda en Vercel Blob
+# (almacenamiento público real) y devuelve una URL que cualquiera puede
+# abrir con sus propios datos, sin estar en la red de la Pi. La Pi sigue
+# necesitando su propia salida a internet para poder subirlos (no es "cero
+# red", es no depender de compartir red con los invitados). Si la subida
+# falla (sin internet, Vercel caído), cae solo a la URL local de siempre —
+# nunca rompe el flujo, mismo criterio que el resto del proyecto.
+UPLOAD_TO_CLOUD = True
+VERCEL_BASE_URL = "https://frameit-lac.vercel.app"
+
+
+def upload_to_vercel(endpoint, body, content_type):
+    req = urllib.request.Request(
+        f"{VERCEL_BASE_URL}{endpoint}",
+        data=body,
+        headers={"Content-Type": content_type},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        return data["url"]
 
 # Debe coincidir con EXPORT_VIDEO_FPS en js/app.js — ver el comentario en
 # convert_webm_to_mp4 sobre por qué forzar esto importa.
@@ -278,7 +313,13 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
         # algo que el celular de un invitado pueda resolver — localhost ahí
         # sería su propio loopback, no la Pi. app.js usa esto para armar el
         # QR en vez de location.origin.
-        self._respond_json({"origin": f"http://{LAN_IP}:{PORT}"})
+        #
+        # En modo nube, el QR tiene que apuntar a /galeria.html del deploy
+        # de Vercel (público), no a la IP local de la Pi — si no, de nada
+        # sirve que la foto/el Live estén en Vercel Blob si la página que
+        # los muestra solo se puede abrir estando en la red de la Pi.
+        origin = VERCEL_BASE_URL if UPLOAD_TO_CLOUD else f"http://{LAN_IP}:{PORT}"
+        self._respond_json({"origin": origin})
 
     def _handle_upload_photo(self):
         body = self._read_body()
@@ -286,6 +327,15 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(400, "Empty body")
             return
         (UPLOADS_DIR / "latest.png").write_bytes(body)
+
+        if UPLOAD_TO_CLOUD:
+            try:
+                cloud_url = upload_to_vercel("/api/upload-photo", body, "image/png")
+                self._respond_json({"url": cloud_url})
+                return
+            except (urllib.error.URLError, OSError, ValueError, KeyError) as err:
+                print(f"[FrameIt] No se pudo subir la foto a Vercel, uso la URL local: {err}")
+
         self._respond_json({"url": "/uploads/latest.png"})
 
     def _handle_upload_video(self):
@@ -297,21 +347,34 @@ class FrameItHandler(http.server.SimpleHTTPRequestHandler):
         webm_path = UPLOADS_DIR / "latest-live.webm"
         webm_path.write_bytes(body)
 
+        local_path = webm_path
+        local_url = "/uploads/latest-live.webm"
+        content_type = "video/webm"
+
         if FFMPEG_BIN:
             mp4_path = UPLOADS_DIR / "latest-live.mp4"
             try:
                 convert_webm_to_mp4(webm_path, mp4_path)
-                self._respond_json({"url": "/uploads/latest-live.mp4"})
-                return
+                local_path = mp4_path
+                local_url = "/uploads/latest-live.mp4"
+                content_type = "video/mp4"
             except subprocess.CalledProcessError as err:
                 mp4_path.unlink(missing_ok=True)  # puede haber quedado a medio escribir
                 stderr = err.stderr.decode("utf-8", "replace") if err.stderr else ""
                 print(f"[FrameIt] ffmpeg falló convirtiendo el Live a MP4, se sirve el webm crudo:\n{stderr}")
 
-        # Sin ffmpeg instalado, o si la conversión falló: se sirve el webm
-        # crudo — /galeria.html detecta la extensión y cae sola a convertir
-        # con ffmpeg.wasm en el celular (más lento, pero sigue andando).
-        self._respond_json({"url": "/uploads/latest-live.webm"})
+        if UPLOAD_TO_CLOUD:
+            try:
+                cloud_url = upload_to_vercel("/api/upload-video", local_path.read_bytes(), content_type)
+                self._respond_json({"url": cloud_url})
+                return
+            except (urllib.error.URLError, OSError, ValueError, KeyError) as err:
+                print(f"[FrameIt] No se pudo subir el Live a Vercel, uso la URL local: {err}")
+
+        # Sin ffmpeg instalado, conversión fallida, o modo nube apagado/caído:
+        # se sirve la URL local — /galeria.html detecta la extensión y cae
+        # sola a convertir con ffmpeg.wasm en el celular si hace falta.
+        self._respond_json({"url": local_url})
 
     def log_message(self, format, *args):
         # Un poco más silencioso que el default — pero en un error (404,
