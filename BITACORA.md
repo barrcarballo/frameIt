@@ -832,3 +832,16 @@ que necesitan un carácter específico y reconocible (como un clic de
 cámara real), conviene pedir un archivo real en vez de iterar a ciegas —
 no hay forma de escuchar el resultado del lado del agente para ajustar
 con criterio.
+
+### Fix: demora en pedir la cámara en deploys sin relay (Vercel)
+
+En Vercel (y cualquier deploy sin `webcam_relay.py` corriendo), la app
+igual intentaba conectarse primero al relay de la webcam antes de caer a
+`getUserMedia` local — sin un timeout corto en ese intento, la demora
+real llegaba a varios segundos (hasta el timeout de 8s pensado para
+esperar el video UNA VEZ que el relay ya contestó, no para la conexión
+inicial). Se agregó un `AbortController` con 2.5s de timeout solo para
+el `fetch` inicial al relay — en la Pi (donde el relay sí existe y
+contesta en bien menos de un segundo, confirmado en pruebas anteriores)
+no cambia nada; en deploys sin relay, cae mucho más rápido a la cámara
+propia del dispositivo.
