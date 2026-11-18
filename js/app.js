@@ -303,6 +303,55 @@ function preloadSquareFrame(framePath) {
   return squareFrameCache[path];
 }
 
+// Sonidos sintetizados con Web Audio API — nada de archivos .mp3/.wav
+// (ni dependencias): un beep para cada número de la cuenta regresiva y un
+// clic de obturador (ruido blanco con decaimiento rápido, suena más a
+// clic real que un tono puro) al capturar. audioCtx se crea una sola vez
+// y se reusa; ctx.resume() por si el navegador lo suspendió por política
+// de autoplay (no debería pasar acá, ya hubo varios toques del usuario
+// antes de llegar a la cuenta regresiva, pero no cuesta nada curarse en salud).
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
+function playCountdownBeep() {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 880;
+    gain.gain.value = 0.15;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    osc.stop(ctx.currentTime + 0.12);
+  } catch (err) {
+    console.warn("[FrameIt] No se pudo reproducir el beep de la cuenta regresiva:", err);
+  }
+}
+
+// Archivo real en vez de sintetizado (ver BITACORA) — se precarga una sola
+// vez y se reusa; reiniciar currentTime permite reproducirlo de nuevo sin
+// esperar a que termine la reproducción anterior.
+const shutterClickAudio = new Audio("assets/audio/shutter-click.mp3");
+shutterClickAudio.preload = "auto";
+
+function playShutterClick() {
+  try {
+    shutterClickAudio.currentTime = 0;
+    shutterClickAudio.play().catch((err) => {
+      console.warn("[FrameIt] No se pudo reproducir el clic del obturador:", err);
+    });
+  } catch (err) {
+    console.warn("[FrameIt] No se pudo reproducir el clic del obturador:", err);
+  }
+}
+
 async function capturePhoto() {
   const video = document.getElementById("captureFeed");
   const fallback = document.getElementById("captureFallback");
@@ -315,6 +364,8 @@ async function capturePhoto() {
     console.warn("[FrameIt] No hay fuente de imagen lista para capturar.");
     return null;
   }
+
+  playShutterClick();
 
   const canvas = document.createElement("canvas");
   canvas.width = 640;
@@ -449,11 +500,13 @@ function startCountdown(onDone, onTick) {
   const el = document.getElementById("countdownText");
   let n = 5;
   el.textContent = n;
+  playCountdownBeep();
 
   countdownTimer = setInterval(() => {
     n -= 1;
     if (n > 0) {
       el.textContent = n;
+      playCountdownBeep();
       onTick?.(n);
       return;
     }
