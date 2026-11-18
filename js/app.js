@@ -335,6 +335,33 @@ function playCountdownBeep() {
   }
 }
 
+// Acorde ascendente de dos notas (quinta justa: A5 → E6), tipo "listo"/
+// notificación — mismo patrón que playCountdownBeep, con una segunda nota
+// encadenada. Suena cuando el QR termina de renderizarse.
+function playQrReadySound() {
+  try {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    [
+      [880, 0],
+      [1318.5, 0.1],
+    ].forEach(([freq, delay]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.value = 0.2;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.25);
+      osc.stop(now + delay + 0.25);
+    });
+  } catch (err) {
+    console.warn("[FrameIt] No se pudo reproducir el sonido de QR listo:", err);
+  }
+}
+
 // Archivo real en vez de sintetizado (ver BITACORA) — se precarga una sola
 // vez y se reusa; reiniciar currentTime permite reproducirlo de nuevo sin
 // esperar a que termine la reproducción anterior.
@@ -1056,6 +1083,7 @@ async function uploadAndRenderQr() {
   if (videoUrl) query += `&video=${encodeURIComponent(videoUrl)}`;
   stopQrLoadingLoop();
   await renderExportQr(qrContainer, query);
+  playQrReadySound();
 }
 
 const WELCOME_LOOP_MS = 3000;
