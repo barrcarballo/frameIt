@@ -10,6 +10,11 @@
          background:#ffdede; font-family:-apple-system,system-ui,sans-serif; }
   img, video { max-width:min(90vw,360px); width:100%; border-radius:16px; box-shadow:0 8px 24px rgba(61,3,3,.25); }
 
+  .logo { max-width:140px; width:35vw; box-shadow:none; border-radius:0; margin-bottom:4px; }
+
+  .tag-reminder { font-size:15px; color:#3d0303; text-align:center; max-width:320px; margin:0; }
+  .tag-reminder strong { color:#950606; }
+
   .view-tabs { display:flex; gap:8px; }
   .view-tabs button {
     font:inherit; font-size:15px; font-weight:600; border:1px solid #3d0303; border-radius:14px;
@@ -29,6 +34,8 @@
 </style>
 </head>
 <body>
+  <img class="logo" src="assets/logo/isologo.svg" alt="Frame it" />
+
   <div class="view-tabs" id="viewTabs" hidden>
     <button type="button" data-view="photo" class="is-active">Foto</button>
     <button type="button" data-view="live">Live</button>
@@ -36,6 +43,8 @@
 
   <img id="photo" alt="Tu foto de FrameIt" />
   <video id="live" loop muted autoplay playsinline controls hidden></video>
+
+  <p class="tag-reminder">No te olvides de etiquetarnos <strong>@frameit_ar</strong> 📸</p>
 
   <button class="action" id="shareBtn">Compartir</button>
   <a class="download" id="downloadLink">Descargar foto</a>
