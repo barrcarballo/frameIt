@@ -560,7 +560,10 @@ function bindPreviewViewTabs() {
 }
 
 function bindPreviewScreen() {
-  document.getElementById("retryBtn").addEventListener("click", () => showScreen("capturing"));
+  // Vuelve a "selection" (no directo a "capturing") — esa pantalla dispara
+  // la cuenta regresiva sola apenas se entra, así que ir directo ahí hacía
+  // que la captura arrancara sin que la persona llegue a prepararse.
+  document.getElementById("retryBtn").addEventListener("click", () => showScreen("selection"));
   document.getElementById("confirmBtn").addEventListener("click", () => showScreen("background"));
   bindPreviewViewTabs();
 }
