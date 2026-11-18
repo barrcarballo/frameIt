@@ -22,6 +22,7 @@ let currentScreen = "welcome";
 let idleTimer = null;
 let idleDeadline = null; // timestamp (ms) en que el idle timer actual dispara
 let welcomeLoopTimer = null;
+let qrLoadingTimer = null;
 let cameraStream = null; // MediaStream compartido, lo usa initCamera() y la Live Photo
 
 // Estado de la sesión de captura en curso (modo elegido, marco elegido, etc.)
@@ -720,7 +721,10 @@ function computeExportLayout(mediaCount, canvasW = EXPORT_W, canvasH = EXPORT_H)
   // En modo "single" la tira tiene 1 sola celda, no 3 — se agranda (logo y
   // separaciones escalan solos porque están definidos en función de stripW).
   const stripW = canvasW * (session.mode === "single" ? 0.62 : 0.48);
-  const logoW = stripW * 0.65;
+  // El logo siempre mide lo mismo sin importar el modo — antes escalaba
+  // con stripW, y como stripW es más ancho en "single", el logo quedaba
+  // más grande ahí que en la tira de 3.
+  const logoW = canvasW * 0.48 * 0.65;
   const logoH = logoW * (42 / 113); // aspect ratio real de isologo-light.svg
   const logoGap = stripW * 0.1;
 
@@ -742,12 +746,15 @@ function computeExportLayout(mediaCount, canvasW = EXPORT_W, canvasH = EXPORT_H)
 
   const cx = canvasW / 2;
 
-  // El logo ancla cerca del borde inferior (no centrado en todo el canvas)
-  // pero respetando el margen que IG Stories tapa con su propia UI abajo
-  // (~15% de la altura) — así nunca queda escondido detrás de esa barra.
+  // El logo se queda anclado cerca del borde inferior (no centrado), para
+  // no quedar tapado por la barra de interacción de Instagram Stories.
   const bottomSafeMargin = canvasH * 0.05;
   const logoY = canvasH - bottomSafeMargin - logoH;
-  const clusterCy = logoY - logoGap - clusterH / 2;
+
+  // Solo en modo "single" (1 foto) la polaroid se centra en el canvas —
+  // en la tira de 3 fotos se mantiene el posicionamiento original (pegada
+  // arriba del logo con un margen fijo), que ya estaba bien así.
+  const clusterCy = isSingle ? canvasH / 2 : logoY - logoGap - clusterH / 2;
 
   return { stripW, logoW, logoH, bottomPad, cx, clusterCy, logoY };
 }
@@ -923,6 +930,35 @@ async function renderExportQr(container, galleryQuery) {
   });
 }
 
+const QR_LOADING_PHRASES = [
+  "Preparando QR...",
+  "No te vayas, ya casi está...",
+  "Subiendo tu foto...",
+  "Un toque más...",
+];
+const QR_LOADING_PHRASE_MS = 2500;
+
+// Mientras se sube la foto/Live, en vez de dejar un solo texto fijo, va
+// rotando entre QR_LOADING_PHRASES — mismo patrón que startWelcomeLoop.
+// El spinner es puramente CSS (ver .qr-spinner), acá solo arma el markup.
+function startQrLoadingLoop(container) {
+  stopQrLoadingLoop();
+  container.innerHTML = '<div class="qr-loading"><span class="qr-spinner"></span><span class="qr-loading-text"></span></div>';
+  const textEl = container.querySelector(".qr-loading-text");
+
+  let i = 0;
+  textEl.textContent = QR_LOADING_PHRASES[0];
+  qrLoadingTimer = setInterval(() => {
+    i = (i + 1) % QR_LOADING_PHRASES.length;
+    textEl.textContent = QR_LOADING_PHRASES[i];
+  }, QR_LOADING_PHRASE_MS);
+}
+
+function stopQrLoadingLoop() {
+  clearInterval(qrLoadingTimer);
+  qrLoadingTimer = null;
+}
+
 // Compone y sube la foto final y la Live Photo final (~10s, ver
 // composeFinalVideoBlob), y recién ahí renderiza el QR — ya con las dos
 // opciones adentro, para que en /galeria el toggle Foto/Live esté siempre
@@ -931,10 +967,11 @@ async function renderExportQr(container, galleryQuery) {
 // servidor caído), deja un mensaje de error en vez de romper la pantalla.
 async function uploadAndRenderQr() {
   const qrContainer = document.getElementById("exportQr");
-  qrContainer.textContent = "Preparando QR...";
+  startQrLoadingLoop(qrContainer);
 
   const photoBlob = await composeFinalImageBlob();
   if (!photoBlob) {
+    stopQrLoadingLoop();
     qrContainer.textContent = "Sin foto para compartir";
     return;
   }
@@ -944,6 +981,7 @@ async function uploadAndRenderQr() {
     photoUrl = await uploadAsset("/api/upload-photo", photoBlob, "image/png");
   } catch (err) {
     console.warn("[FrameIt] No se pudo subir la foto para el QR:", err);
+    stopQrLoadingLoop();
     qrContainer.textContent = "No se pudo generar el QR";
     return;
   }
@@ -960,6 +998,7 @@ async function uploadAndRenderQr() {
 
   let query = `photo=${encodeURIComponent(photoUrl)}`;
   if (videoUrl) query += `&video=${encodeURIComponent(videoUrl)}`;
+  stopQrLoadingLoop();
   await renderExportQr(qrContainer, query);
 }
 
