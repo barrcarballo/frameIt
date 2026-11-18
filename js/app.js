@@ -141,11 +141,25 @@ async function getWebcamViaRelay() {
   await pc.setLocalDescription(offerDesc);
   await waitForIceGathering(pc);
 
-  const res = await fetch(`https://${location.hostname}:8444/offer`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type }),
-  });
+  // Timeout corto acá (no el de 8s de arriba, que es para esperar el video
+  // una vez que el relay YA contestó) — en deploys sin relay (Vercel, no
+  // tiene webcam_relay.py corriendo en ningún lado) esta conexión no existe
+  // directamente, y sin esto la Mac tardaba varios segundos de más antes
+  // de caer a la cámara propia vía getUserMedia.
+  const abortController = new AbortController();
+  const fetchTimeout = setTimeout(() => abortController.abort(), 2500);
+
+  let res;
+  try {
+    res = await fetch(`https://${location.hostname}:8444/offer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type }),
+      signal: abortController.signal,
+    });
+  } finally {
+    clearTimeout(fetchTimeout);
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const answer = await res.json();
   await pc.setRemoteDescription(answer);
