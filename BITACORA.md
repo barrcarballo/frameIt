@@ -798,3 +798,37 @@ administración, no como paso obligatorio para usar el kiosco.
 (server.py en 8080/8443, el relay de webcam en 8444) respondieron
 correctamente después del reboot sin que nadie entrara por SSH a
 levantar nada a mano.
+
+### Más ajustes de diseño + sonido
+
+- "Volver a intentarlo" (pantalla Preview) iba directo a `capturing`, que
+  dispara la cuenta regresiva sola apenas se entra — ahora vuelve a
+  `selection` (la pantalla anterior), para que la persona elija
+  marco/filtro y arranque la captura ella misma cuando esté lista.
+- Las 6 miniaturas de marco "readonly" de la pantalla `capturing` eran
+  `<img>` con una foto de referencia fija (`booth-photo.jpg`) — se
+  pasaron a `<video>` igual que en `selection`, así el código existente
+  de `initCamera()` (que ya asignaba el stream a `.frame-thumb-photo`)
+  las reconoce solo y muestran la cámara en vivo.
+- `galeria.html`: agregado el isologo arriba y un recordatorio
+  "No te olvides de etiquetarnos @frameit_ar" antes de los botones de
+  Compartir/Descargar.
+- **Sonido**, tres momentos:
+  - Beep en cada número de la cuenta regresiva (Web Audio API,
+    sintetizado — tono simple, sin archivo).
+  - Clic de obturador al capturar. Primer intento sintetizado (ruido
+    filtrado, dos golpes tipo "clac") — no convenció a la usuaria
+    después de varias iteraciones a ciegas (sin forma de escuchar el
+    resultado yo mismo para ajustar). Se resolvió con un archivo de
+    audio real (`assets/audio/shutter-click.mp3`, provisto por la
+    usuaria) en vez de seguir sintetizando — mucho más confiable.
+  - Acorde ascendente de dos notas (A5→E6) cuando el QR termina de
+    renderizarse — sintetizado, sin archivo, funcionó bien al primer
+    intento (más simple de acertar a ciegas que el clic mecánico).
+
+**Lección:** para sonidos simples/genéricos (beeps, chimes), sintetizar
+con Web Audio API a ciegas funciona razonablemente bien. Para sonidos
+que necesitan un carácter específico y reconocible (como un clic de
+cámara real), conviene pedir un archivo real en vez de iterar a ciegas —
+no hay forma de escuchar el resultado del lado del agente para ajustar
+con criterio.
