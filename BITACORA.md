@@ -766,3 +766,35 @@ errores.
 **Confirmado en uso real** (demo fuera de casa, invitados escaneando
 desde sus propios datos móviles) y mergeado a `main` — branch
 `feature/qr-cloud-upload` borrada.
+
+### Ajustes de diseño (loading del QR, @handle, centrado de la polaroid)
+
+- Pantalla de Entrega: mientras se sube la foto/Live, el texto ahora
+  queda centrado dentro del recuadro del QR (antes quedaba arriba a la
+  izquierda, sin centrar) y rota entre varias frases cada 2.5s
+  (`QR_LOADING_PHRASES` en `js/app.js`), con un spinner CSS arriba (ver
+  `.qr-spinner`, puro CSS, sin librerías).
+- Instagram cambiado de `@frameit` a `@frameit_ar` (pantalla de Entrega y
+  el texto que arma `shareCurrent()` en `galeria.html`).
+- `computeExportLayout()`: en modo "single" (1 foto) la polaroid ahora se
+  centra verticalmente en el canvas de exportación (antes quedaba
+  descentrada) — la tira de 3 fotos NO se tocó, sigue con su
+  posicionamiento original (ya estaba bien). El logo de FrameIt queda
+  siempre del mismo tamaño en los dos modos (antes escalaba con el ancho
+  de la tira, y en "single" salía más grande que en la tira de 3).
+
+### Arranque automático con systemd (server.py + webcam_relay.py)
+
+`systemd/frameit-server.service` y `systemd/frameit-webcam.service`
+(nuevos) — instalados y habilitados en la Pi
+(`/etc/systemd/system/`, `systemctl enable --now`). Antes había que
+entrar por SSH y correr `python3 server.py` / `python3 webcam_relay.py`
+a mano en terminales separadas cada vez que se prendía la Pi — ahora
+arrancan solos al boot, y si alguno se cae, `Restart=on-failure`
+(3s) lo reinicia solo. SSH/VNC quedan solo como herramientas de
+administración, no como paso obligatorio para usar el kiosco.
+
+**Validado con un reinicio real** (`sudo reboot`): los tres servicios
+(server.py en 8080/8443, el relay de webcam en 8444) respondieron
+correctamente después del reboot sin que nadie entrara por SSH a
+levantar nada a mano.
