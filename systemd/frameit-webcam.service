@@ -1,0 +1,15 @@
+[Unit]
+Description=FrameIt - relay WebRTC de la webcam
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=barbarac
+WorkingDirectory=/home/barbarac/frameIt
+ExecStart=/home/barbarac/frameIt/.venv-webrtc/bin/python3 /home/barbarac/frameIt/webcam_relay.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
